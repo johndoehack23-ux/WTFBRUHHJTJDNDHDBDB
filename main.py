@@ -304,8 +304,6 @@ async def on_message(message):
             player_id = game["player_id"]
             guild_id = game.get("guild_id")
 
-            await try_delete(message)
-
             if not is_valid_word(content):
                 await message.channel.send(f"**{content.upper()}** is not a valid English word!")
                 return
