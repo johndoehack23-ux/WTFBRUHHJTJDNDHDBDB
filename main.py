@@ -57,7 +57,7 @@ def get_feedback(guess, secret):
                 result[i] = "🟨"
                 secret_list[secret_list.index(guess_list[i])] = None
             else:
-                result[i] = "⬛"
+                result[i] = "⬜"
 
     return "".join(result)
 
