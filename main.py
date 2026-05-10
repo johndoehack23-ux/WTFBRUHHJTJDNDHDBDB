@@ -282,7 +282,7 @@ async def reset_global_leaderboard(ctx):
     await ctx.send("✅ **Global** leaderboard has been completely reset.")
 
 # ====================== SET WORD (ADMIN) ======================
-@bot.command(name="set-word", aliases=["sw"])
+@bot.command(name="sw", aliases=["set-word", "setword"])
 async def set_word(ctx, *, word: str = None):
     if not is_admin(ctx.author.id):
         return
@@ -291,7 +291,7 @@ async def set_word(ctx, *, word: str = None):
         await ctx.send("❌ Usage: `-sw <word>`")
         return
     next_word = word.strip().lower()
-    await ctx.send(f"✅ Next wordle word set to **{next_word.upper()}** (length: **{len(next_word)}**). It will be used on the next `-wordle` start, then reset to random.")
+    await ctx.send(f"✅ Next wordle word set to **{next_word.upper()}** (length: **{len(next_word)}**) — will be used on the next `-wordle`, then back to random.")
 
 # ====================== WORDLE START ======================
 @bot.command(name="wordle")
