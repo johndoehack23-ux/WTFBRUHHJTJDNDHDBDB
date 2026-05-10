@@ -114,10 +114,11 @@ def record_win(guild_id, user_id, username):
         srv[uid]["best_streak"] = srv[uid]["current_streak"]
     srv[uid]["username"] = username
 
-    # Global entry
+    # Global entry — always stays in sync with server streak
     if uid not in leaderboard["global"]:
         leaderboard["global"][uid] = {"username": username, "current_streak": 0, "best_streak": 0}
-    leaderboard["global"][uid]["current_streak"] += 1
+    # Sync global current_streak to match server so resets are reflected correctly
+    leaderboard["global"][uid]["current_streak"] = srv[uid]["current_streak"]
     if leaderboard["global"][uid]["current_streak"] > leaderboard["global"][uid]["best_streak"]:
         leaderboard["global"][uid]["best_streak"] = leaderboard["global"][uid]["current_streak"]
     leaderboard["global"][uid]["username"] = username
@@ -250,6 +251,11 @@ async def reset_server_leaderboard(ctx):
         await ctx.send("❌ This command can only be used in a server.")
         return
     gid = str(ctx.guild.id)
+    # Reset global current_streak for users in this server before clearing
+    srv = leaderboard["servers"].get(gid, {})
+    for uid in srv:
+        if uid in leaderboard["global"]:
+            leaderboard["global"][uid]["current_streak"] = 0
     leaderboard["servers"][gid] = {}
     save_leaderboard()
     await ctx.send(f"✅ **{ctx.guild.name}** server leaderboard has been reset.")
@@ -259,6 +265,10 @@ async def reset_server_leaderboard(ctx):
 async def reset_global_leaderboard(ctx):
     if not is_admin(ctx.author.id):
         return
+    # Also reset current_streak in all server leaderboards
+    for gid in leaderboard["servers"]:
+        for uid in leaderboard["servers"][gid]:
+            leaderboard["servers"][gid][uid]["current_streak"] = 0
     leaderboard["global"] = {}
     save_leaderboard()
     await ctx.send("✅ **Global** leaderboard has been completely reset.")

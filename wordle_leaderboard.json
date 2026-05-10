@@ -1,18 +1,23 @@
 {
     "servers": {
         "1489324349017296947": {
-            "1465295674768883889": {
+            "1275741025905803275": {
                 "username": "0_.a.",
-                "current_streak": 2,
-                "best_streak": 2
+                "current_streak": 1,
+                "best_streak": 1
             }
         }
     },
     "global": {
         "1465295674768883889": {
             "username": "0_.a.",
-            "current_streak": 2,
-            "best_streak": 2
+            "current_streak": 1,
+            "best_streak": 1
+        },
+        "1275741025905803275": {
+            "username": "0_.a.",
+            "current_streak": 1,
+            "best_streak": 1
         }
     }
 }
