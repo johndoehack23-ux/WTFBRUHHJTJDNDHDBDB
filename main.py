@@ -24,8 +24,6 @@ bot = commands.Bot(command_prefix=prefix, intents=intents, help_command=None)
 # Game storage
 active_games = {}
 
-# Next forced word (set by admin with -sw)
-next_word = None
 
 # Leaderboard structure:
 # {
@@ -198,7 +196,7 @@ async def admin_help(ctx):
     embed = discord.Embed(title="🔐 Admin Commands", color=0xFF4500)
     embed.add_field(name=f"{prefix}reveal", value="Reveal the current secret word", inline=False)
     embed.add_field(name=f"{prefix}hint", value="Give a hint (reveals one correct letter's position)", inline=False)
-    embed.add_field(name=f"{prefix}sw <word>", value="Set the next wordle word (also: set-word, setword)", inline=False)
+    embed.add_field(name=f"{prefix}wordle <word>", value="Start a wordle game with a specific word (admins only)", inline=False)
     embed.add_field(name=f"{prefix}reset-leaderboard / {prefix}rlb", value="Reset this server's leaderboard", inline=False)
     embed.add_field(name=f"{prefix}resetglobal-leaderboard / {prefix}rglb", value="Reset the ENTIRE global leaderboard", inline=False)
     embed.set_footer(text="These commands are restricted to admins only.")
@@ -282,32 +280,18 @@ async def reset_global_leaderboard(ctx):
     save_leaderboard()
     await ctx.send("✅ **Global** leaderboard has been completely reset.")
 
-# ====================== SET WORD (ADMIN) ======================
-@bot.command(name="sw", aliases=["set-word", "setword"])
-async def set_word(ctx, *, word: str = None):
-    if not is_admin(ctx.author.id):
-        return
-    global next_word
-    if not word:
-        await ctx.send("❌ Usage: `-sw <word>`")
-        return
-    next_word = word.strip().lower()
-    await ctx.send(f"✅ Next wordle word set to **{next_word.upper()}** (length: **{len(next_word)}**) — will be used on the next `-wordle`, then back to random.")
-
 # ====================== WORDLE START ======================
 @bot.command(name="wordle")
-async def start_wordle(ctx):
-    global next_word
+async def start_wordle(ctx, *, word: str = None):
     await try_delete(ctx.message)
     channel_id = ctx.channel.id
     if channel_id in active_games:
         await ctx.send("There's already an active Wordle game in this channel!")
         return
 
-    if next_word:
-        secret = next_word
+    if word and is_admin(ctx.author.id):
+        secret = word.strip().lower()
         length = len(secret)
-        next_word = None
     else:
         secret, length = get_random_word()
 

@@ -3,15 +3,26 @@
         "1489324349017296947": {
             "1275741025905803275": {
                 "username": "xkirasus",
-                "current_streak": 0,
+                "current_streak": 2,
                 "best_streak": 2
             },
             "1465295674768883889": {
                 "username": "0_.a.",
-                "current_streak": 0,
-                "best_streak": 1
+                "current_streak": 3,
+                "best_streak": 3
             }
         }
     },
-    "global": {}
+    "global": {
+        "1465295674768883889": {
+            "username": "0_.a.",
+            "current_streak": 3,
+            "best_streak": 3
+        },
+        "1275741025905803275": {
+            "username": "xkirasus",
+            "current_streak": 2,
+            "best_streak": 2
+        }
+    }
 }
