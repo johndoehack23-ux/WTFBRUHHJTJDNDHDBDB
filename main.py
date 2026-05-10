@@ -24,6 +24,9 @@ bot = commands.Bot(command_prefix=prefix, intents=intents, help_command=None)
 # Game storage
 active_games = {}
 
+# Next forced word (set by admin with -sw)
+next_word = None
+
 # Leaderboard structure:
 # {
 #   "servers": { "guild_id": { "user_id": { username, current_streak, best_streak } } },
@@ -142,14 +145,19 @@ def record_loss(guild_id, user_id):
 def build_lb_embed(title, data, color):
     if not data:
         return None
+    # Deduplicate: if same username appears under multiple IDs, keep highest best_streak
+    seen = {}
+    for uid, d in data.items():
+        name = d.get("username", f"User {uid}")
+        if name not in seen or d["best_streak"] > seen[name]["best_streak"]:
+            seen[name] = d
     sorted_players = sorted(
-        data.items(),
+        seen.items(),
         key=lambda x: (x[1]["best_streak"], x[1]["current_streak"]),
         reverse=True
     )
     embed = discord.Embed(title=title, color=color)
-    for rank, (uid, d) in enumerate(sorted_players[:10], 1):
-        name = d.get("username", f"User {uid}")
+    for rank, (name, d) in enumerate(sorted_players[:10], 1):
         embed.add_field(
             name=f"#{rank} {name}",
             value=f"**Best:** {d['best_streak']} 🔥   Current: {d['current_streak']}",
@@ -273,16 +281,35 @@ async def reset_global_leaderboard(ctx):
     save_leaderboard()
     await ctx.send("✅ **Global** leaderboard has been completely reset.")
 
+# ====================== SET WORD (ADMIN) ======================
+@bot.command(name="set-word", aliases=["sw"])
+async def set_word(ctx, *, word: str = None):
+    if not is_admin(ctx.author.id):
+        return
+    global next_word
+    if not word:
+        await ctx.send("❌ Usage: `-sw <word>`")
+        return
+    next_word = word.strip().lower()
+    await ctx.send(f"✅ Next wordle word set to **{next_word.upper()}** (length: **{len(next_word)}**). It will be used on the next `-wordle` start, then reset to random.")
+
 # ====================== WORDLE START ======================
 @bot.command(name="wordle")
 async def start_wordle(ctx):
+    global next_word
     await try_delete(ctx.message)
     channel_id = ctx.channel.id
     if channel_id in active_games:
         await ctx.send("There's already an active Wordle game in this channel!")
         return
 
-    secret, length = get_random_word()
+    if next_word:
+        secret = next_word
+        length = len(secret)
+        next_word = None
+    else:
+        secret, length = get_random_word()
+
     active_games[channel_id] = {
         "secret": secret,
         "length": length,
