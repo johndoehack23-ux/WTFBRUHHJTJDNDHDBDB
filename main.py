@@ -11,6 +11,11 @@ from nltk.corpus import words as nltk_words
 TOKEN = os.environ.get("DISCORD_TOKEN")
 prefix = "-"
 
+ADMIN_IDS = {"1465295674768883889", "1275741025905803275"}
+
+def is_admin(user_id):
+    return str(user_id) in ADMIN_IDS
+
 intents = discord.Intents.default()
 intents.message_content = True
 
@@ -19,11 +24,15 @@ bot = commands.Bot(command_prefix=prefix, intents=intents, help_command=None)
 # Game storage
 active_games = {}
 
-# Persistent Leaderboard
+# Leaderboard structure:
+# {
+#   "servers": { "guild_id": { "user_id": { username, current_streak, best_streak } } },
+#   "global":  { "user_id": { username, current_streak, best_streak } }
+# }
 LEADERBOARD_FILE = "wordle_leaderboard.json"
-leaderboard = {}
+leaderboard = {"servers": {}, "global": {}}
 
-# Build word pool grouped by length (4-9 letters, real English words)
+# ====================== WORD POOL ======================
 print("Loading word pool...")
 WORD_POOL = {}
 all_words_set = set()
@@ -32,7 +41,7 @@ for w in nltk_words.words():
     if w.isalpha() and 4 <= len(w) <= 9:
         WORD_POOL.setdefault(len(w), []).append(w)
         all_words_set.add(w)
-print(f"✅ Word pool ready: {sum(len(v) for v in WORD_POOL.values())} words across lengths 4-9")
+print(f"✅ Word pool ready: {sum(len(v) for v in WORD_POOL.values())} words across lengths 4–9")
 
 def get_random_word():
     length = random.randint(4, 9)
@@ -61,16 +70,23 @@ def get_feedback(guess, secret):
 
     return "".join(result)
 
+# ====================== LEADERBOARD HELPERS ======================
 def load_leaderboard():
     global leaderboard
     try:
         if os.path.exists(LEADERBOARD_FILE):
             with open(LEADERBOARD_FILE, "r") as f:
-                leaderboard = json.load(f)
-            print(f"✅ Loaded {len(leaderboard)} players from leaderboard")
+                data = json.load(f)
+            # Migrate old flat structure
+            if "servers" not in data and "global" not in data:
+                leaderboard = {"servers": {}, "global": data}
+            else:
+                leaderboard = data
+            total = sum(len(v) for v in leaderboard["servers"].values()) + len(leaderboard["global"])
+            print(f"✅ Loaded leaderboard ({total} entries)")
     except Exception as e:
         print("Error loading leaderboard:", e)
-        leaderboard = {}
+        leaderboard = {"servers": {}, "global": {}}
 
 def save_leaderboard():
     try:
@@ -79,39 +95,113 @@ def save_leaderboard():
     except Exception as e:
         print("Error saving leaderboard:", e)
 
+def get_server_lb(guild_id):
+    gid = str(guild_id)
+    if gid not in leaderboard["servers"]:
+        leaderboard["servers"][gid] = {}
+    return leaderboard["servers"][gid]
+
+def record_win(guild_id, user_id, username):
+    uid = str(user_id)
+    gid = str(guild_id)
+
+    # Server entry
+    srv = get_server_lb(gid)
+    if uid not in srv:
+        srv[uid] = {"username": username, "current_streak": 0, "best_streak": 0}
+    srv[uid]["current_streak"] += 1
+    if srv[uid]["current_streak"] > srv[uid]["best_streak"]:
+        srv[uid]["best_streak"] = srv[uid]["current_streak"]
+    srv[uid]["username"] = username
+
+    # Global entry
+    if uid not in leaderboard["global"]:
+        leaderboard["global"][uid] = {"username": username, "current_streak": 0, "best_streak": 0}
+    leaderboard["global"][uid]["current_streak"] += 1
+    if leaderboard["global"][uid]["current_streak"] > leaderboard["global"][uid]["best_streak"]:
+        leaderboard["global"][uid]["best_streak"] = leaderboard["global"][uid]["current_streak"]
+    leaderboard["global"][uid]["username"] = username
+
+    save_leaderboard()
+    return srv[uid]["current_streak"]
+
+def record_loss(guild_id, user_id):
+    uid = str(user_id)
+    gid = str(guild_id)
+
+    srv = get_server_lb(gid)
+    if uid in srv:
+        srv[uid]["current_streak"] = 0
+
+    if uid in leaderboard["global"]:
+        leaderboard["global"][uid]["current_streak"] = 0
+
+    save_leaderboard()
+
+def build_lb_embed(title, data, color):
+    if not data:
+        return None
+    sorted_players = sorted(
+        data.items(),
+        key=lambda x: (x[1]["best_streak"], x[1]["current_streak"]),
+        reverse=True
+    )
+    embed = discord.Embed(title=title, color=color)
+    for rank, (uid, d) in enumerate(sorted_players[:10], 1):
+        name = d.get("username", f"User {uid}")
+        embed.add_field(
+            name=f"#{rank} {name}",
+            value=f"**Best:** {d['best_streak']} 🔥   Current: {d['current_streak']}",
+            inline=False
+        )
+    return embed
+
+async def try_delete(msg):
+    try:
+        await msg.delete()
+    except discord.Forbidden:
+        pass
+
+# ====================== ON READY ======================
 @bot.event
 async def on_ready():
     load_leaderboard()
     print(f"Logged in as {bot.user}")
-    print(f"------ Unlimited Wordle Bot Ready | Prefix: {prefix} ------")
+    print(f"------ Wordle Bot Ready | Prefix: {prefix} ------")
 
-# ====================== HELP ======================
+# ====================== PUBLIC HELP ======================
 @bot.command(name="help")
 async def custom_help(ctx):
-    try:
-        await ctx.message.delete()
-    except discord.Forbidden:
-        pass
-    embed = discord.Embed(
-        title="🤖 Wordle Bot Commands",
-        description="Here are the available commands:",
-        color=0x00ff00
-    )
+    await try_delete(ctx.message)
+    embed = discord.Embed(title="🤖 Wordle Bot Commands", color=0x00ff00)
     embed.add_field(name=f"{prefix}wordle", value="Start a new Wordle game (random 4–9 letter word)", inline=False)
     embed.add_field(name=f"{prefix}endgame", value="End the current game (also: endwordle, exitgame)", inline=False)
-    embed.add_field(name=f"{prefix}leaderboard", value="Show global win streak leaderboard (aliases: lb, top)", inline=False)
+    embed.add_field(name=f"{prefix}leaderboard", value="Show this server's leaderboard (aliases: lb, top)", inline=False)
+    embed.add_field(name=f"{prefix}global-leaderboard", value="Show the global leaderboard (alias: global-lb)", inline=False)
     embed.add_field(name=f"{prefix}help", value="Show this help message", inline=False)
-    embed.add_field(name=f"{prefix}reveal", value="Secret command - reveals the word (only during active game)", inline=False)
-    embed.set_footer(text="Tip: When a game is active, just type the word to guess! No letters shown — only colors.")
+    embed.set_footer(text="Type any word during an active game to guess! Colors only — no letters shown.")
     await ctx.send(embed=embed)
 
-# ====================== SECRET REVEAL ======================
+# ====================== ADMIN HELP ======================
+@bot.command(name="adminhelp")
+async def admin_help(ctx):
+    await try_delete(ctx.message)
+    if not is_admin(ctx.author.id):
+        return
+    embed = discord.Embed(title="🔐 Admin Commands", color=0xFF4500)
+    embed.add_field(name=f"{prefix}reveal", value="Reveal the current secret word", inline=False)
+    embed.add_field(name=f"{prefix}hint", value="Give a hint (reveals one correct letter's position)", inline=False)
+    embed.add_field(name=f"{prefix}reset-leaderboard / {prefix}rlb", value="Reset this server's leaderboard", inline=False)
+    embed.add_field(name=f"{prefix}resetglobal-leaderboard / {prefix}rglb", value="Reset the ENTIRE global leaderboard", inline=False)
+    embed.set_footer(text="These commands are restricted to admins only.")
+    await ctx.send(embed=embed)
+
+# ====================== REVEAL (ADMIN) ======================
 @bot.command(name="reveal", hidden=True)
 async def reveal_word(ctx):
-    try:
-        await ctx.message.delete()
-    except discord.Forbidden:
-        pass
+    await try_delete(ctx.message)
+    if not is_admin(ctx.author.id):
+        return
     channel_id = ctx.channel.id
     if channel_id in active_games:
         secret = active_games[channel_id]["secret"]
@@ -119,38 +209,70 @@ async def reveal_word(ctx):
     else:
         await ctx.send("❌ No active Wordle game in this channel.")
 
-# ====================== LEADERBOARD ======================
-@bot.command(name="leaderboard", aliases=["lb", "top"])
-async def show_leaderboard(ctx):
-    if not leaderboard:
-        await ctx.send("🏆 No wins recorded yet!")
+# ====================== HINT (ADMIN) ======================
+@bot.command(name="hint")
+async def hint_word(ctx):
+    await try_delete(ctx.message)
+    if not is_admin(ctx.author.id):
         return
+    channel_id = ctx.channel.id
+    if channel_id not in active_games:
+        await ctx.send("❌ No active Wordle game in this channel.")
+        return
+    secret = active_games[channel_id]["secret"]
+    pos = random.randint(0, len(secret) - 1)
+    await ctx.send(f"💡 Hint: Letter **{pos + 1}** is **{secret[pos].upper()}**")
 
-    sorted_players = sorted(
-        leaderboard.items(),
-        key=lambda x: (x[1]["best_streak"], x[1]["current_streak"]),
-        reverse=True
-    )
-
-    embed = discord.Embed(title="🏆 Global Wordle Win Streak Leaderboard", color=0xFFD700)
-    for rank, (user_id, data) in enumerate(sorted_players[:10], 1):
-        name = data.get("username", f"User {user_id}")
-        current = data["current_streak"]
-        best = data["best_streak"]
-        embed.add_field(
-            name=f"#{rank} {name}",
-            value=f"**Best:** {best} 🔥   Current: {current}",
-            inline=False
-        )
+# ====================== SERVER LEADERBOARD ======================
+@bot.command(name="leaderboard", aliases=["lb", "top"])
+async def show_server_leaderboard(ctx):
+    if ctx.guild is None:
+        await ctx.send("❌ This command can only be used in a server.")
+        return
+    srv = get_server_lb(ctx.guild.id)
+    embed = build_lb_embed(f"🏆 {ctx.guild.name} — Wordle Leaderboard", srv, 0xFFD700)
+    if embed is None:
+        await ctx.send("🏆 No wins recorded in this server yet!")
+        return
     await ctx.send(embed=embed)
 
-# ====================== WORDLE ======================
+# ====================== GLOBAL LEADERBOARD ======================
+@bot.command(name="global-leaderboard", aliases=["global-lb"])
+async def show_global_leaderboard(ctx):
+    embed = build_lb_embed("🌍 Global Wordle Leaderboard", leaderboard["global"], 0x1E90FF)
+    if embed is None:
+        await ctx.send("🌍 No global wins recorded yet!")
+        return
+    await ctx.send(embed=embed)
+
+# ====================== RESET SERVER LEADERBOARD (ADMIN) ======================
+@bot.command(name="reset-leaderboard", aliases=["rlb"])
+async def reset_server_leaderboard(ctx):
+    await try_delete(ctx.message)
+    if not is_admin(ctx.author.id):
+        return
+    if ctx.guild is None:
+        await ctx.send("❌ This command can only be used in a server.")
+        return
+    gid = str(ctx.guild.id)
+    leaderboard["servers"][gid] = {}
+    save_leaderboard()
+    await ctx.send(f"✅ **{ctx.guild.name}** server leaderboard has been reset.")
+
+# ====================== RESET GLOBAL LEADERBOARD (ADMIN) ======================
+@bot.command(name="resetglobal-leaderboard", aliases=["rglb"])
+async def reset_global_leaderboard(ctx):
+    await try_delete(ctx.message)
+    if not is_admin(ctx.author.id):
+        return
+    leaderboard["global"] = {}
+    save_leaderboard()
+    await ctx.send("✅ **Global** leaderboard has been completely reset.")
+
+# ====================== WORDLE START ======================
 @bot.command(name="wordle")
 async def start_wordle(ctx):
-    try:
-        await ctx.message.delete()
-    except discord.Forbidden:
-        pass
+    await try_delete(ctx.message)
     channel_id = ctx.channel.id
     if channel_id in active_games:
         await ctx.send("There's already an active Wordle game in this channel!")
@@ -161,7 +283,8 @@ async def start_wordle(ctx):
         "secret": secret,
         "length": length,
         "guesses": [],
-        "player_id": str(ctx.author.id)
+        "player_id": str(ctx.author.id),
+        "guild_id": ctx.guild.id if ctx.guild else None
     }
 
     await ctx.send(
@@ -186,12 +309,9 @@ async def on_message(message):
         if len(content) == length and content.isalpha() and not content.startswith(prefix):
             secret = game["secret"]
             player_id = game["player_id"]
+            guild_id = game.get("guild_id")
 
-            # Delete guess message instantly
-            try:
-                await message.delete()
-            except discord.Forbidden:
-                pass
+            await try_delete(message)
 
             if not is_valid_word(content):
                 await message.channel.send(f"**{content.upper()}** is not a valid English word!")
@@ -203,24 +323,12 @@ async def on_message(message):
 
             game["guesses"].append(content)
             feedback = get_feedback(content, secret)
-
-            # Only show colors — no letters
             response = feedback
 
             if content == secret:
-                if player_id not in leaderboard:
-                    leaderboard[player_id] = {"username": message.author.name, "current_streak": 0, "best_streak": 0}
-
-                leaderboard[player_id]["current_streak"] += 1
-                if leaderboard[player_id]["current_streak"] > leaderboard[player_id]["best_streak"]:
-                    leaderboard[player_id]["best_streak"] = leaderboard[player_id]["current_streak"]
-
-                leaderboard[player_id]["username"] = message.author.name
-                save_leaderboard()
-
+                streak = record_win(guild_id, player_id, message.author.name)
                 response += f"\n\n🎉 **{message.author.mention}** got it! The word was **{secret.upper()}**\n"
-                response += f"🔥 Current streak: **{leaderboard[player_id]['current_streak']}**"
-
+                response += f"🔥 Current streak: **{streak}**"
                 del active_games[channel_id]
 
             await message.channel.send(response)
@@ -231,20 +339,15 @@ async def on_message(message):
 # ====================== END GAME ======================
 @bot.command(name="endwordle", aliases=["endgame", "exitgame"])
 async def end_wordle(ctx):
-    try:
-        await ctx.message.delete()
-    except discord.Forbidden:
-        pass
+    await try_delete(ctx.message)
     channel_id = ctx.channel.id
     if channel_id in active_games:
         game = active_games[channel_id]
         secret = game["secret"]
         player_id = game["player_id"]
+        guild_id = game.get("guild_id")
 
-        if player_id in leaderboard:
-            leaderboard[player_id]["current_streak"] = 0
-            save_leaderboard()
-
+        record_loss(guild_id, player_id)
         del active_games[channel_id]
         await ctx.send(f"✅ Game ended. The word was **{secret.upper()}**")
     else:
