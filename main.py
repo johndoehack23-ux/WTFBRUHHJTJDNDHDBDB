@@ -198,6 +198,7 @@ async def admin_help(ctx):
     embed = discord.Embed(title="🔐 Admin Commands", color=0xFF4500)
     embed.add_field(name=f"{prefix}reveal", value="Reveal the current secret word", inline=False)
     embed.add_field(name=f"{prefix}hint", value="Give a hint (reveals one correct letter's position)", inline=False)
+    embed.add_field(name=f"{prefix}sw <word>", value="Set the next wordle word (also: set-word, setword)", inline=False)
     embed.add_field(name=f"{prefix}reset-leaderboard / {prefix}rlb", value="Reset this server's leaderboard", inline=False)
     embed.add_field(name=f"{prefix}resetglobal-leaderboard / {prefix}rglb", value="Reset the ENTIRE global leaderboard", inline=False)
     embed.set_footer(text="These commands are restricted to admins only.")
