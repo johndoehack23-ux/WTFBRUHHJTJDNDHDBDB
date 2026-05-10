@@ -52,14 +52,14 @@ def get_feedback(guess, secret):
     feedback = ""
     secret_list = list(secret)
     guess_list = list(guess)
-    
+
     for i in range(5):
         if guess_list[i] == secret_list[i]:
             feedback += "🟩"
             secret_list[i] = None
         else:
             feedback += " "
-    
+
     result = list(feedback)
     for i in range(5):
         if result[i] == " ":
@@ -73,7 +73,6 @@ def get_feedback(guess, secret):
 @bot.event
 async def on_ready():
     load_leaderboard()
-    # Remove default help command to avoid conflicts
     bot.remove_command("help")
     print(f"Logged in as {bot.user}")
     print(f"------ Unlimited Wordle Bot Ready | Prefix: {prefix} ------")
@@ -91,7 +90,7 @@ async def custom_help(ctx):
     embed.add_field(name=f"{prefix}leaderboard", value="Show global win streak leaderboard (aliases: lb, top)", inline=False)
     embed.add_field(name=f"{prefix}help", value="Show this help message", inline=False)
     embed.add_field(name=f"{prefix}reveal", value="Secret command - reveals the word (only during active game)", inline=False)
-    
+
     embed.set_footer(text="Tip: When a game is active, just type any 5-letter word to guess!")
     await ctx.send(embed=embed)
 
@@ -102,7 +101,6 @@ async def reveal_word(ctx):
     if channel_id in active_games:
         secret = active_games[channel_id]["secret"]
         await ctx.send(f"🔍 The secret word is: **{secret.upper()}**")
-    # Silent if no game active
 
 # ====================== LEADERBOARD ======================
 @bot.command(name="leaderboard", aliases=["lb", "top"])
