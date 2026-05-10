@@ -266,9 +266,10 @@ async def reset_global_leaderboard(ctx):
 # ====================== WORDLE START ======================
 @bot.command(name="wordle")
 async def start_wordle(ctx):
+    await try_delete(ctx.message)
     channel_id = ctx.channel.id
     if channel_id in active_games:
-        await ctx.message.reply("There's already an active Wordle game in this channel!")
+        await ctx.send("There's already an active Wordle game in this channel!")
         return
 
     secret, length = get_random_word()
