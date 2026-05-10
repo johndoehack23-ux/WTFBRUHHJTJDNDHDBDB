@@ -90,7 +90,7 @@ async def on_ready():
 async def custom_help(ctx):
     try:
         await ctx.message.delete()
-    except Exception:
+    except discord.Forbidden:
         pass
     embed = discord.Embed(
         title="🤖 Wordle Bot Commands",
@@ -110,12 +110,14 @@ async def custom_help(ctx):
 async def reveal_word(ctx):
     try:
         await ctx.message.delete()
-    except Exception:
+    except discord.Forbidden:
         pass
     channel_id = ctx.channel.id
     if channel_id in active_games:
         secret = active_games[channel_id]["secret"]
         await ctx.send(f"🔍 The secret word is: **{secret.upper()}**")
+    else:
+        await ctx.send("❌ No active Wordle game in this channel.")
 
 # ====================== LEADERBOARD ======================
 @bot.command(name="leaderboard", aliases=["lb", "top"])
@@ -147,7 +149,7 @@ async def show_leaderboard(ctx):
 async def start_wordle(ctx):
     try:
         await ctx.message.delete()
-    except Exception:
+    except discord.Forbidden:
         pass
     channel_id = ctx.channel.id
     if channel_id in active_games:
@@ -188,7 +190,7 @@ async def on_message(message):
             # Delete guess message instantly
             try:
                 await message.delete()
-            except Exception:
+            except discord.Forbidden:
                 pass
 
             if not is_valid_word(content):
@@ -231,7 +233,7 @@ async def on_message(message):
 async def end_wordle(ctx):
     try:
         await ctx.message.delete()
-    except Exception:
+    except discord.Forbidden:
         pass
     channel_id = ctx.channel.id
     if channel_id in active_games:
