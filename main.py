@@ -342,10 +342,6 @@ async def on_message(message):
             player_id = game["player_id"]
             guild_id = game.get("guild_id")
 
-            if content != secret and not is_valid_word(content):
-                await message.channel.send(f"**{content.upper()}** is not a valid English word!")
-                return
-
             if content in game["guesses"]:
                 await message.channel.send(f"**{content.upper()}** was already guessed!")
                 return
