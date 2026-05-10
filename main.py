@@ -177,7 +177,7 @@ async def custom_help(ctx):
     embed.add_field(name=f"{prefix}wordle", value="Start a new Wordle game (random 4–9 letter word)", inline=False)
     embed.add_field(name=f"{prefix}endgame", value="End the current game (also: endwordle, exitgame)", inline=False)
     embed.add_field(name=f"{prefix}leaderboard", value="Show this server's leaderboard (aliases: lb, top)", inline=False)
-    embed.add_field(name=f"{prefix}global-leaderboard", value="Show the global leaderboard (alias: global-lb)", inline=False)
+    embed.add_field(name=f"{prefix}glb", value="Show the global leaderboard (also: globallb, global-lb)", inline=False)
     embed.add_field(name=f"{prefix}help", value="Show this help message", inline=False)
     embed.set_footer(text="Type any word during an active game to guess! Colors only — no letters shown.")
     await ctx.send(embed=embed)
@@ -237,7 +237,7 @@ async def show_server_leaderboard(ctx):
     await ctx.send(embed=embed)
 
 # ====================== GLOBAL LEADERBOARD ======================
-@bot.command(name="global-leaderboard", aliases=["global-lb"])
+@bot.command(name="globallb", aliases=["glb", "global-lb", "global-leaderboard"])
 async def show_global_leaderboard(ctx):
     embed = build_lb_embed("🌍 Global Wordle Leaderboard", leaderboard["global"], 0x1E90FF)
     if embed is None:
@@ -260,7 +260,7 @@ async def reset_server_leaderboard(ctx):
     await ctx.send(f"✅ **{ctx.guild.name}** server leaderboard has been reset.")
 
 # ====================== RESET GLOBAL LEADERBOARD (ADMIN) ======================
-@bot.command(name="resetglobal-leaderboard", aliases=["rglb"])
+@bot.command(name="rglb", aliases=["resetglobal-leaderboard", "resetgloballb"])
 async def reset_global_leaderboard(ctx):
     await try_delete(ctx.message)
     if not is_admin(ctx.author.id):
