@@ -79,6 +79,10 @@ async def on_ready():
 # ====================== HELP ======================
 @bot.command(name="help")
 async def custom_help(ctx):
+    try:
+        await ctx.message.delete()
+    except Exception:
+        pass
     embed = discord.Embed(
         title="🤖 Wordle Bot Commands",
         description="Here are the available commands:",
@@ -89,13 +93,16 @@ async def custom_help(ctx):
     embed.add_field(name=f"{prefix}leaderboard", value="Show global win streak leaderboard (aliases: lb, top)", inline=False)
     embed.add_field(name=f"{prefix}help", value="Show this help message", inline=False)
     embed.add_field(name=f"{prefix}reveal", value="Secret command - reveals the word (only during active game)", inline=False)
-
     embed.set_footer(text="Tip: When a game is active, just type any 5-letter word to guess!")
     await ctx.send(embed=embed)
 
 # ====================== SECRET REVEAL ======================
 @bot.command(name="reveal", hidden=True)
 async def reveal_word(ctx):
+    try:
+        await ctx.message.delete()
+    except Exception:
+        pass
     channel_id = ctx.channel.id
     if channel_id in active_games:
         secret = active_games[channel_id]["secret"]
@@ -104,6 +111,7 @@ async def reveal_word(ctx):
 # ====================== LEADERBOARD ======================
 @bot.command(name="leaderboard", aliases=["lb", "top"])
 async def show_leaderboard(ctx):
+    # Messages are NOT deleted for leaderboard
     if not leaderboard:
         await ctx.send("🏆 No wins recorded yet!")
         return
@@ -129,6 +137,10 @@ async def show_leaderboard(ctx):
 # ====================== WORDLE ======================
 @bot.command(name="wordle")
 async def start_wordle(ctx):
+    try:
+        await ctx.message.delete()
+    except Exception:
+        pass
     channel_id = ctx.channel.id
     if channel_id in active_games:
         await ctx.send("There's already an active Wordle game in this channel!")
@@ -137,13 +149,11 @@ async def start_wordle(ctx):
     secret = random.choice(WORD_LIST).lower()
     active_games[channel_id] = {"secret": secret, "guesses": [], "player_id": str(ctx.author.id)}
 
-    embed = discord.Embed(
-        title="🟩 Wordle Started! 🟨",
-        description=f"Just type any **5-letter word** to guess!\n"
-                    f"Unlimited attempts • End with `{prefix}endgame`",
-        color=0x00ff00
+    await ctx.send(
+        f"## New wordle game started by {ctx.author.mention}\n"
+        f"Word length: **5**\n\n"
+        f"Just type any **5-letter word** to guess! • End with `{prefix}endgame`"
     )
-    await ctx.send(embed=embed)
 
 @bot.event
 async def on_message(message):
@@ -159,14 +169,20 @@ async def on_message(message):
         secret = game["secret"]
         player_id = game["player_id"]
 
+        # Delete the guess message instantly
+        try:
+            await message.delete()
+        except Exception:
+            pass
+
         if guess in game["guesses"]:
-            await message.channel.send("You already guessed that word!")
+            await message.channel.send(f"**{guess.upper()}** was already guessed!")
             return
 
         game["guesses"].append(guess)
         feedback = get_feedback(guess, secret)
 
-        response = f"**Guess {len(game['guesses'])}**: `{guess.upper()}`\n{feedback}"
+        response = f"`{guess.upper()}` {feedback}"
 
         if guess == secret:
             if player_id not in leaderboard:
@@ -179,7 +195,7 @@ async def on_message(message):
             leaderboard[player_id]["username"] = message.author.name
             save_leaderboard()
 
-            response += f"\n\n🎉 **Congratulations!** You solved it in **{len(game['guesses'])}** guesses!\n"
+            response += f"\n\n🎉 **Congratulations {message.author.mention}!** You solved it!\n"
             response += f"🔥 Current streak: **{leaderboard[player_id]['current_streak']}**"
 
             del active_games[channel_id]
@@ -189,8 +205,13 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
+# ====================== END GAME ======================
 @bot.command(name="endwordle", aliases=["endgame", "exitgame"])
 async def end_wordle(ctx):
+    try:
+        await ctx.message.delete()
+    except Exception:
+        pass
     channel_id = ctx.channel.id
     if channel_id in active_games:
         game = active_games[channel_id]
