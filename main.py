@@ -172,7 +172,6 @@ async def on_ready():
 # ====================== PUBLIC HELP ======================
 @bot.command(name="help")
 async def custom_help(ctx):
-    await try_delete(ctx.message)
     embed = discord.Embed(title="🤖 Wordle Bot Commands", color=0x00ff00)
     embed.add_field(name=f"{prefix}wordle", value="Start a new Wordle game (random 4–9 letter word)", inline=False)
     embed.add_field(name=f"{prefix}endgame", value="End the current game (also: endwordle, exitgame)", inline=False)
@@ -185,7 +184,6 @@ async def custom_help(ctx):
 # ====================== ADMIN HELP ======================
 @bot.command(name="adminhelp")
 async def admin_help(ctx):
-    await try_delete(ctx.message)
     if not is_admin(ctx.author.id):
         return
     embed = discord.Embed(title="🔐 Admin Commands", color=0xFF4500)
@@ -199,7 +197,6 @@ async def admin_help(ctx):
 # ====================== REVEAL (ADMIN) ======================
 @bot.command(name="reveal", hidden=True)
 async def reveal_word(ctx):
-    await try_delete(ctx.message)
     if not is_admin(ctx.author.id):
         return
     channel_id = ctx.channel.id
@@ -212,7 +209,6 @@ async def reveal_word(ctx):
 # ====================== HINT (ADMIN) ======================
 @bot.command(name="hint")
 async def hint_word(ctx):
-    await try_delete(ctx.message)
     if not is_admin(ctx.author.id):
         return
     channel_id = ctx.channel.id
@@ -248,7 +244,6 @@ async def show_global_leaderboard(ctx):
 # ====================== RESET SERVER LEADERBOARD (ADMIN) ======================
 @bot.command(name="reset-leaderboard", aliases=["rlb"])
 async def reset_server_leaderboard(ctx):
-    await try_delete(ctx.message)
     if not is_admin(ctx.author.id):
         return
     if ctx.guild is None:
@@ -262,7 +257,6 @@ async def reset_server_leaderboard(ctx):
 # ====================== RESET GLOBAL LEADERBOARD (ADMIN) ======================
 @bot.command(name="rglb", aliases=["resetglobal-leaderboard", "resetgloballb"])
 async def reset_global_leaderboard(ctx):
-    await try_delete(ctx.message)
     if not is_admin(ctx.author.id):
         return
     leaderboard["global"] = {}
@@ -272,10 +266,9 @@ async def reset_global_leaderboard(ctx):
 # ====================== WORDLE START ======================
 @bot.command(name="wordle")
 async def start_wordle(ctx):
-    await try_delete(ctx.message)
     channel_id = ctx.channel.id
     if channel_id in active_games:
-        await ctx.send("There's already an active Wordle game in this channel!")
+        await ctx.message.reply("There's already an active Wordle game in this channel!")
         return
 
     secret, length = get_random_word()
@@ -287,7 +280,7 @@ async def start_wordle(ctx):
         "guild_id": ctx.guild.id if ctx.guild else None
     }
 
-    await ctx.send(
+    await ctx.message.reply(
         f"## New wordle game started by {ctx.author.mention}\n"
         f"Word length: **{length}**\n\n"
         f"Type any **{length}-letter** English word to guess! • End with `{prefix}endgame`"
@@ -339,7 +332,6 @@ async def on_message(message):
 # ====================== END GAME ======================
 @bot.command(name="endwordle", aliases=["endgame", "exitgame"])
 async def end_wordle(ctx):
-    await try_delete(ctx.message)
     channel_id = ctx.channel.id
     if channel_id in active_games:
         game = active_games[channel_id]
