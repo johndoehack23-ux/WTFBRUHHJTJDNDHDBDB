@@ -10,7 +10,7 @@ prefix = "-"                  # ← Change prefix here easily!
 intents = discord.Intents.default()
 intents.message_content = True
 
-bot = commands.Bot(command_prefix=prefix, intents=intents)
+bot = commands.Bot(command_prefix=prefix, intents=intents, help_command=None)
 
 # Game storage
 active_games = {}
@@ -73,7 +73,6 @@ def get_feedback(guess, secret):
 @bot.event
 async def on_ready():
     load_leaderboard()
-    bot.remove_command("help")
     print(f"Logged in as {bot.user}")
     print(f"------ Unlimited Wordle Bot Ready | Prefix: {prefix} ------")
 
