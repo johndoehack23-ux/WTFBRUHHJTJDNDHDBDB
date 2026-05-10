@@ -281,10 +281,9 @@ async def start_wordle(ctx):
         "guild_id": ctx.guild.id if ctx.guild else None
     }
 
-    await ctx.message.reply(
+    await ctx.send(
         f"## New wordle game started by {ctx.author.mention}\n"
-        f"Word length: **{length}**\n\n"
-        f"Type any **{length}-letter** English word to guess! • End with `{prefix}endgame`"
+        f"Word length: **{length}**"
     )
 
 # ====================== GUESS HANDLER ======================
