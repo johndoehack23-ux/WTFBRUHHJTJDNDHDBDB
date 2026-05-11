@@ -34,6 +34,5 @@ externalPort = 80
 [userenv]
 
 [userenv.shared]
-DISCORD_TOKEN = "MTUwMjY1NDczNzIxOTMyMTkyNg.GDrmgk.q_bqclCGRDqgQGO7pPEdc747yT38aJUpz0JV74"
 
 [nix]

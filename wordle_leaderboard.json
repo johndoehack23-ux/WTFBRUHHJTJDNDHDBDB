@@ -1,28 +1,40 @@
 {
     "servers": {
         "1489324349017296947": {
-            "1275741025905803275": {
-                "username": "xkirasus",
-                "current_streak": 2,
-                "best_streak": 2
-            },
             "1465295674768883889": {
                 "username": "0_.a.",
+                "current_streak": 4,
+                "best_streak": 4
+            }
+        },
+        "1481930888702070815": {},
+        "1470042367036752075": {
+            "1465295674768883889": {
+                "username": "0_.a.",
+                "current_streak": 1,
+                "best_streak": 2
+            },
+            "1480188731326730392": {
+                "username": "visca_barca_088",
+                "current_streak": 1,
+                "best_streak": 1
+            },
+            "1503267385619124375": {
+                "username": "syg.stop.locking.your.account.",
+                "current_streak": 3,
+                "best_streak": 3
+            },
+            "1371804080829370446": {
+                "username": "glitchxsasuke_23890",
+                "current_streak": 3,
+                "best_streak": 3
+            },
+            "1427723939823485059": {
+                "username": "hyeolyeonsa_92090",
                 "current_streak": 3,
                 "best_streak": 3
             }
         }
     },
-    "global": {
-        "1465295674768883889": {
-            "username": "0_.a.",
-            "current_streak": 3,
-            "best_streak": 3
-        },
-        "1275741025905803275": {
-            "username": "xkirasus",
-            "current_streak": 2,
-            "best_streak": 2
-        }
-    }
+    "global": {}
 }
