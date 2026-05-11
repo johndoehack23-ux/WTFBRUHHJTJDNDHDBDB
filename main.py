@@ -219,7 +219,7 @@ def get_random_word(category: str = None):
     if category and category in WORD_CATEGORIES:
         pool = WORD_CATEGORIES[category]
     else:
-        pool = [w for words in WORD_CATEGORIES.values() for w in words]
+        pool = WORD_CATEGORIES[random.choice(["medium", "hard"])]
     word = random.choice(pool)
     return word, len(word)
 
@@ -437,7 +437,9 @@ async def start_wordle(ctx, arg1: str = None, private_id: int = None, public_id:
         except: pass
         target_id = public_chan if public_chan else ctx.channel.id
     else:
-        secret, _ = get_random_word()
+        default_cat = config.get("default_category")
+        secret, _ = get_random_word(default_cat)
+        category = default_cat
         try: await ctx.message.delete()
         except: pass
         target_id = ctx.channel.id
@@ -455,13 +457,19 @@ async def start_wordle(ctx, arg1: str = None, private_id: int = None, public_id:
         "category": category,
     }
 
-    label = CATEGORY_LABELS.get(category, "🎲 Random") if category else "🎲 Random"
+    label = CATEGORY_LABELS.get(category) if category else None
     target_channel = bot.get_channel(target_id)
     if target_channel:
-        await target_channel.send(
-            f"## New Wordle game started!\n"
-            f"Difficulty: **{label}** — Word length: **{len(secret)}**"
-        )
+        if label:
+            await target_channel.send(
+                f"## New Wordle game started!\n"
+                f"Difficulty: **{label}** — Word length: **{len(secret)}**"
+            )
+        else:
+            await target_channel.send(
+                f"## New Wordle game started!\n"
+                f"Word length: **{len(secret)}**"
+            )
 
 @bot.command(name="endwordle", aliases=["endgame", "exitgame"])
 async def end_wordle(ctx):
@@ -520,15 +528,32 @@ async def set_current_streak(ctx, user: discord.User, number: int):
         save_leaderboard()
         await ctx.send(f"✅ Current streak updated for {user}.")
 
+@bot.command(name="category")
+async def set_category(ctx, mode: str = None):
+    if not is_admin(ctx.author.id):
+        return
+    if not mode or mode.lower() not in WORD_CATEGORIES:
+        await ctx.send(f"❌ Usage: `{prefix}category <easy|medium|hard|impossible>`")
+        return
+    gid = str(ctx.guild.id)
+    if gid not in server_config:
+        server_config[gid] = {}
+    server_config[gid]["default_category"] = mode.lower()
+    save_config(server_config)
+    label = CATEGORY_LABELS[mode.lower()]
+    await ctx.send(f"✅ Default category set to **{label}** for this server.")
+
 @bot.command(name="adminhelp")
 async def admin_help(ctx):
     if not is_admin(ctx.author.id): return
     embed = discord.Embed(title="🔐 Admin Commands", color=0xFF4500)
     embed.add_field(name=f"{prefix}reveal", value="Reveal word", inline=False)
     embed.add_field(name=f"{prefix}hint", value="Give hint", inline=False)
-    embed.add_field(name=f"{prefix}rlb", value="Reset LB", inline=False)
-    embed.add_field(name=f"{prefix}lb-best", value="Set best streak", inline=False)
-    embed.add_field(name=f"{prefix}lb-current", value="Set current streak", inline=False)
+    embed.add_field(name=f"{prefix}wordle <word>", value="Start a game with a custom word", inline=False)
+    embed.add_field(name=f"{prefix}category <easy|medium|hard|impossible>", value="Set the default difficulty for this server", inline=False)
+    embed.add_field(name=f"{prefix}rlb", value="Reset server leaderboard", inline=False)
+    embed.add_field(name=f"{prefix}lb-best <@user> <number>", value="Set a user's best streak", inline=False)
+    embed.add_field(name=f"{prefix}lb-current <@user> <number>", value="Set a user's current streak", inline=False)
     await ctx.send(embed=embed)
 
 @bot.command(name="test")
