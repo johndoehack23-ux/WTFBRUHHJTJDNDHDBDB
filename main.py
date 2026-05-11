@@ -197,9 +197,6 @@ async def on_message(message):
     if message.author.bot:
         return
 
-    if MAINTENANCE_MODE and not is_admin(message.author.id):
-        return
-
     if not bot_ready:
         await message.channel.send("⏳ Please wait, the bot is still starting up!")
         return
@@ -229,7 +226,7 @@ async def on_message(message):
 
             game.setdefault("guesses", []).append(content)
             feedback = get_feedback(content, secret)
-            
+
             if content == secret:
                 winner_id = str(message.author.id)
                 winner_name = message.author.name
@@ -239,6 +236,9 @@ async def on_message(message):
             else:
                 await message.channel.send(feedback)
             return
+
+    if MAINTENANCE_MODE and not is_admin(message.author.id):
+        return
 
     await bot.process_commands(message)
 
