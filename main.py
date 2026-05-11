@@ -186,7 +186,7 @@ def build_lb_embed(title, data, color):
     embed = discord.Embed(title=title, color=color)
     for rank, (name, d) in enumerate(sorted_players[:10], 1):
         embed.add_field(
-            name=f"rank {rank} {name}",
+            name=f"Top {rank}: {name}",
             value=f"**Best:** {d['best_streak']} 🔥   Current: {d['current_streak']}",
             inline=False
         )
