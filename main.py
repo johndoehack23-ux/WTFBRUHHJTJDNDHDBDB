@@ -324,7 +324,10 @@ async def show_server_leaderboard(ctx):
     if ctx.guild is None: return
     srv = get_server_lb(ctx.guild.id)
     embed = build_lb_embed(f"🏆 {ctx.guild.name} Leaderboard", srv, 0xFFD700)
-    await ctx.send(embed=embed if embed else "No wins yet!")
+    if embed:
+        await ctx.send(embed=embed)
+    else:
+        await ctx.send("No wins yet!")
 
 @bot.command(name="reset-leaderboard", aliases=["rlb"])
 async def reset_server_leaderboard(ctx):
