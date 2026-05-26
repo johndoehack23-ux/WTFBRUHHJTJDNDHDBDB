@@ -34,5 +34,6 @@ externalPort = 80
 [userenv]
 
 [userenv.shared]
+token = "MTUwMjY1NDczNzIxOTMyMTkyNg.G2g0jo.7Dh0QVnJ1-h-ugpPlJhOiQ9F5CYv3-fXevgnjQ"
 
 [nix]

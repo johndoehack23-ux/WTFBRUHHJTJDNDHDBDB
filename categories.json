@@ -1,0 +1,22 @@
+{
+    "servers": {
+        "1489324349017296947": {
+            "categories": [
+                "easy",
+                "medium",
+                "hard",
+                "impossible"
+            ],
+            "default_category": "default"
+        },
+        "1481930888702070815": {
+            "categories": [
+                "easy",
+                "medium",
+                "hard",
+                "impossible"
+            ],
+            "default_category": "hard"
+        }
+    }
+}

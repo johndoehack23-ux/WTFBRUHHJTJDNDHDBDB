@@ -1,0 +1,14 @@
+{
+    "xkira": {
+        "trigger": "xkira",
+        "response": "XKira is the goat <:absolutecinema:1484234420725616861>",
+        "react": "<:absolutecinema:1484234420725616861>",
+        "servers": ["1481930888702070815"]
+    },
+    "kanko": {
+        "trigger": "<@1473003498244280552>",
+        "response": "Kanko might be busy/stalking",
+        "react": "<:you_sybau:1486914740050460732>",
+        "servers": ["1473929399463313480"]
+    }
+}
