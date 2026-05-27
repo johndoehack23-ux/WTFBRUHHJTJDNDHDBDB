@@ -1,14 +1,37 @@
 {
-    "xkira": {
-        "trigger": "xkira",
-        "response": "XKira is the goat <:absolutecinema:1484234420725616861>",
-        "react": "<:absolutecinema:1484234420725616861>",
-        "servers": ["1481930888702070815"]
+    "john china": {
+        "trigger": "john china",
+        "response": "John china 99999999999+ aura",
+        "matchmode": "startswith",
+        "react": "😭",
+        "global": false
     },
-    "kanko": {
-        "trigger": "<@1473003498244280552>",
-        "response": "Kanko might be busy/stalking",
-        "react": "<:you_sybau:1486914740050460732>",
-        "servers": ["1473929399463313480"]
+    "gn": {
+        "trigger": "gn",
+        "response": "alright good night",
+        "matchmode": "contains",
+        "react": null,
+        "global": false
+    },
+    "<@1268696556740018229>": {
+        "trigger": "<@1268696556740018229>",
+        "response": "LIL BROSKIE ✌️",
+        "matchmode": "contains",
+        "react": "😭",
+        "global": false
+    },
+    "hondacivic": {
+        "trigger": "hondacivic",
+        "response": "top 1 worst guy in the history 🗣️🔥",
+        "matchmode": "contains",
+        "react": "😭",
+        "global": false
+    },
+    "x2": {
+        "trigger": "x2",
+        "response": "test trollollll",
+        "matchmode": "contains",
+        "react": null,
+        "global": false
     }
 }

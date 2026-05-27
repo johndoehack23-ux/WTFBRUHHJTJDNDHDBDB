@@ -535,9 +535,75 @@ class BotCommands(commands.Cog):
                 f"🔍 Secret word: **{g['secret'].upper()}**", 
                 ephemeral=True
             )
-            return  # <-- FIXED: Added missing return here so it doesn't run into the error block below
-        
+            return
+
         await interaction.response.send_message("❌ No active game or 1v1 match in this channel.", ephemeral=True)
+
+        # ===================== AUTORESPONDER COMMAND =====================
+    @app_commands.command(name="autoresponder", description="Manage auto responders")
+    @app_commands.default_permissions(manage_messages=True)
+    @app_commands.describe(
+        action="add | remove | edit | list",
+        trigger="Trigger word/phrase",
+        new_trigger="New trigger (for edit only)",
+        reply="Bot's reply",
+        matchmode="contains | exact | startswith | endswith",
+        react="Emoji to react with",
+        global_server="Global (admin only)"
+    )
+    async def autoresponder(
+        self, interaction: discord.Interaction, action: str,
+        trigger: str = None, new_trigger: str = None, reply: str = None,
+        matchmode: str = "contains", react: str = None, global_server: bool = False
+    ):
+        if not interaction.channel.permissions_for(interaction.user).manage_messages:
+            return await interaction.response.send_message("🔐 Need **Manage Messages** permission.", ephemeral=True)
+
+        if global_server and not is_admin(interaction.user.id):
+            return await interaction.response.send_message("🔐 Only admins for global.", ephemeral=True)
+
+        action = action.lower().strip()
+
+        if action == "add":
+            if not trigger or not reply:
+                return await interaction.response.send_message("❌ Need trigger + reply", ephemeral=True)
+            add_auto_response(trigger, reply, matchmode, react, global_server)
+            await interaction.response.send_message(f"✅ Added: `{trigger}`", ephemeral=True)
+
+        elif action == "remove":
+            if not trigger:
+                return await interaction.response.send_message("❌ Need trigger", ephemeral=True)
+            remove_auto_response(trigger)
+            await interaction.response.send_message(f"✅ Removed: `{trigger}`", ephemeral=True)
+
+        elif action == "edit":
+            if not trigger:
+                return await interaction.response.send_message("❌ Need current trigger", ephemeral=True)
+            edit_auto_response(trigger, new_trigger, reply, matchmode, react, global_server)
+            await interaction.response.send_message(f"✅ Updated: `{trigger}`", ephemeral=True)
+
+        elif action == "list":
+            data = get_all_auto_responses()
+            if not data:
+                return await interaction.response.send_message("No auto responders set.", ephemeral=True)
+            embed = discord.Embed(title="Auto Responders", color=0x2f3136)
+            for t, d in data.items():
+                embed.add_field(name=f"`{t}`", value=f"Reply: {d.get('response')[:100]}...", inline=False)
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+
+        else:
+            await interaction.response.send_message("Use: add/remove/edit/list", ephemeral=True)
+
+    # ===================== SAY COMMAND =====================
+    @app_commands.command(name="say", description="Bot says something publicly")
+    @app_commands.default_permissions(manage_messages=True)
+    @app_commands.describe(message="Message to send")
+    async def say(self, interaction: discord.Interaction, message: str):
+        if not interaction.channel.permissions_for(interaction.user).manage_messages:
+            return await interaction.response.send_message("🔐 Need Manage Messages.", ephemeral=True)
+        
+        await interaction.channel.send(message)
+        await interaction.response.send_message("✅ Sent!", ephemeral=True)
 
         # ===================== SLASH ADMINHELP =====================
     @app_commands.command(name="adminhelp", description="Show admin commands")

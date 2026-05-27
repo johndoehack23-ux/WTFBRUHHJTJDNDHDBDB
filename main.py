@@ -34,37 +34,28 @@ async def on_message(message):
     if message.author.bot or not bot_ready:
         return
 
-    channel_id = message.channel.id
-    content = message.content.strip().lower()
-
-    # List of your actual command names (without the dot)
-    valid_commands = {
-        "wordle", "mode", "category", "hint", "reveal", 
-        "endgame", "rlb", "leaderboard", "lb", "test", 
-        "maintenance", "help", "adminhelp", "wordlelimit", 
-        "wlimit", "limit", "resetalllimits", "rlimitall",
-        "lb-best", "leaderboard-best", "lb-current", 
-        "leaderboard-current", "resetwordlelimit", "resetlimit", "rlimit",
-        "shutdown"
-    }
-
-    # Extract command word if a dot is used
-    first_word = content[1:].split()[0] if content.startswith(".") and len(content) > 1 else ""
-    is_prefix_cmd = first_word in valid_commands
-
-    # ===================== SHUTDOWN CHECK =====================
-    if is_shutdown_mode():
-        if is_prefix_cmd:
-            await message.channel.send("🚨 This bot is officially shutdown and cannot be used anymore 🚨\nPlease contact owner of this bot to turn it off")
-        return  # Stops game handling and normal commands safely
-
     # Maintenance check
     if MAINTENANCE_MODE and not is_admin(message.author.id):
         return
 
+    channel_id = message.channel.id
+    content = message.content.strip().lower()
+
     # ===================== SERVER BLACKLIST INTERCEPTION =====================
     if message.guild and is_server_blacklisted(message.guild.id):
+        valid_commands = {
+            "wordle", "mode", "category", "hint", "reveal", 
+            "endgame", "rlb", "leaderboard", "lb", "test", 
+            "maintenance", "help", "adminhelp", "wordlelimit", 
+            "wlimit", "limit", "resetalllimits", "rlimitall",
+            "lb-best", "leaderboard-best", "lb-current", 
+            "leaderboard-current", "resetwordlelimit", "resetlimit", "rlimit"
+        }
+        
+        first_word = content[1:].split()[0] if content.startswith(".") and len(content) > 1 else ""
+        is_prefix_cmd = first_word in valid_commands
         is_potential_guess = (channel_id in active_1v1_matches or channel_id in active_games) and content.isalpha()
+        
         if is_prefix_cmd or is_potential_guess:
             await message.channel.send("❌ This server is blacklisted from using the bot.\nContact the bot owner for details.")
         return
@@ -137,28 +128,47 @@ async def on_message(message):
                 await message.channel.send(feedback)
             return
 
-    # ===================== CUT IN PIECES: AUTO RESPONSES BLOCK =====================
-    if not is_shutdown_mode():  # <-- EXTRA SAFETY LOCK: Auto-responses physically won't run if shutdown
-        content_raw = message.content.lower()
-        auto_responses = load_auto_responses()
+    # ===================== AUTO RESPONSES =====================
+    content_lower = message.content.lower().strip()
+    auto_responses = load_auto_responses()
 
-        for key, data in auto_responses.items():
-            trigger = data.get("trigger", "").lower()
-            
-            if trigger and trigger in content_raw:
-                allowed_servers = data.get("servers", [])
-                if allowed_servers and str(message.guild.id) not in allowed_servers:
-                    continue
+    for key, data in auto_responses.items():
+        trigger = data.get("trigger", "").lower()
+        if not trigger:
+            continue
 
-                if data.get("response"):
-                    await message.channel.send(data["response"])
+        # Scope Check: Global OR Same Server
+        is_global = data.get("global", False)
+        if not is_global and str(message.guild.id) not in str(message.guild.id):  # This line was broken before
+            continue
 
-                if data.get("react"):
-                    try:
-                        await message.add_reaction(data["react"])
-                    except:
-                        pass
-                break
+        # Matching logic
+        matchmode = data.get("matchmode", "contains")
+        match = False
+
+        if matchmode == "exact":
+            match = content_lower == trigger
+        elif matchmode == "startswith":
+            match = content_lower.startswith(trigger)
+        elif matchmode == "endswith":
+            match = content_lower.endswith(trigger)
+        else:  # contains (default)
+            match = trigger in content_lower
+
+        if match:
+            if data.get("response"):
+                await message.channel.send(data["response"])
+
+            if data.get("react"):
+                try:
+                    await message.add_reaction(data["react"])
+                except:
+                    pass
+            break  # Only trigger once
 
     # Process prefix commands
     await bot.process_commands(message)
+
+# Run the bot
+if __name__ == "__main__":
+    bot.run(TOKEN)

@@ -1,4 +1,4 @@
 {
     "enabled": false,
-    "shutdown": true
+    "shutdown": false
 }

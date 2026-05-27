@@ -61,13 +61,12 @@ EMOJI_FILE = "emoji.json"
 LIMIT_FILE = "wordle_limit.json"
 
 BLACKLISTED_SERVERS = {"1470042367036752075"} 
-# ryomen, 
 
 def is_server_blacklisted(guild_id):
     return str(guild_id) in BLACKLISTED_SERVERS
 
-ADMIN_IDS = {"1275741025905803275", "1496155204196896840"}
-# ninja, sygnaman
+ADMIN_IDS = {"1465295674768883889", "1275741025905803275"}
+# >>> ninja, xkira <<<
 
 # The core dictionary shared across the entire bot
 active_games = {}
@@ -175,9 +174,8 @@ def record_win(guild, user_id, username):
 
 def toggle_maintenance() -> bool:
     """Toggle maintenance mode and return the new state"""
-    file_path = MAINTENANCE_FILE  # Uses the constant you already have
+    file_path = MAINTENANCE_FILE
 
-    # Create file if it doesn't exist
     if not os.path.exists(file_path):
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump({"enabled": False}, f, indent=4)
@@ -192,7 +190,7 @@ def toggle_maintenance() -> bool:
     new_state = not current
 
     data["enabled"] = new_state
-    save_json(file_path, data)  # Use your existing save_json function
+    save_json(file_path, data)
 
     return new_state
 
@@ -218,7 +216,7 @@ def save_wordle_limits(data):
 
 def get_user_game_count(user_id):
     if is_admin(user_id) or is_infinite_wordle(user_id):
-        return 0  # Unlimited
+        return 0
 
     data = load_wordle_limits()
     uid = str(user_id)
@@ -256,7 +254,6 @@ def increment_user_game_count(user_id):
 # ===================== WORDLE LIMIT MANAGEMENT =====================
 
 def reset_user_wordle_limit(user_id):
-    """Reset specific user's wordle count and remove infinite flag"""
     try:
         with open(LIMIT_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -266,12 +263,10 @@ def reset_user_wordle_limit(user_id):
     uid = str(user_id)
     changed = False
 
-    # Reset normal count
     if uid in data.get("users", {}):
         del data["users"][uid]
         changed = True
 
-    # Remove infinite flag
     if "infinite" in data and uid in data["infinite"]:
         del data["infinite"][uid]
         changed = True
@@ -284,7 +279,6 @@ def reset_user_wordle_limit(user_id):
 
 
 def toggle_infinite_wordle(user_id):
-    """Toggle infinite wordle for a user. Returns new state (True = infinite)"""
     try:
         with open(LIMIT_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -306,7 +300,6 @@ def toggle_infinite_wordle(user_id):
 
 
 def is_infinite_wordle(user_id):
-    """Check if user has infinite plays"""
     try:
         with open(LIMIT_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -321,23 +314,76 @@ def get_server_lb(guild_id):
     return leaderboard["servers"][gid]
 
 
+# ===================== AUTO RESPONSE SYSTEM =====================
+
+AUTO_RESPONSE_FILE = "auto_responses.json"
+
 def load_auto_responses():
     try:
-        with open("auto_responses.json", "r", encoding="utf-8") as f:
+        with open(AUTO_RESPONSE_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     except:
         return {}
 
-def is_shutdown_mode():
-    """Checks if shutdown mode is enabled in maintenance.json"""
-    m_data = load_json(MAINTENANCE_FILE, dict)
-    return m_data.get("shutdown", False)
+def save_auto_responses(data):
+    with open(AUTO_RESPONSE_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
 
-def toggle_shutdown():
-    """Toggles shutdown mode state. Returns the new state (True = Shutdown)"""
-    m_data = load_json(MAINTENANCE_FILE, dict)
-    current = m_data.get("shutdown", False)
-    new_state = not current
-    m_data["shutdown"] = new_state
-    save_json(MAINTENANCE_FILE, m_data)
-    return new_state
+def add_auto_response(trigger: str, reply: str, matchmode: str = "contains", react: str = None, global_server: bool = False):
+    data = load_auto_responses()
+    trigger = trigger.lower().strip()
+    data[trigger] = {
+        "trigger": trigger,
+        "response": reply,
+        "matchmode": matchmode.lower(),
+        "react": react,
+        "global": global_server
+    }
+    save_auto_responses(data)
+    return True
+
+def remove_auto_response(trigger: str):
+    data = load_auto_responses()
+    trigger = trigger.lower().strip()
+    if trigger in data:
+        del data[trigger]
+        save_auto_responses(data)
+        return True
+    return False
+
+def edit_auto_response(old_trigger: str, new_trigger: str = None, reply: str = None, 
+                      matchmode: str = None, react: str = None, global_server: bool = None):
+    data = load_auto_responses()
+    old = old_trigger.lower().strip()
+    if old not in data:
+        return False
+    entry = data[old]
+    if new_trigger:
+        new = new_trigger.lower().strip()
+        if new != old:
+            data[new] = entry
+            del data[old]
+            entry = data[new]
+            entry["trigger"] = new
+    if reply is not None:
+        entry["response"] = reply
+    if matchmode is not None:
+        entry["matchmode"] = matchmode.lower()
+    if react is not None:
+        entry["react"] = react if react.strip() else None
+    if global_server is not None:
+        entry["global"] = global_server
+    save_auto_responses(data)
+    return True
+
+def get_all_auto_responses():
+    return load_auto_responses()
+
+def remove_all_auto_responses():
+    """Remove ALL auto responders (Admin only)"""
+    try:
+        with open(AUTO_RESPONSE_FILE, "w", encoding="utf-8") as f:
+            json.dump({}, f, indent=4)
+        return True
+    except:
+        return False
