@@ -74,6 +74,14 @@ async def on_ready():
     m_data = load_json(MAINTENANCE_FILE, dict)
     MAINTENANCE_MODE = m_data.get("enabled", False)
     print(f"✅ Logged in as {bot.user}")
+
+    # Sweep all servers — silently leave any that aren't whitelisted
+    allowed = server_config.get("allowed_servers", [])
+    for guild in list(bot.guilds):
+        if str(guild.id) not in allowed:
+            print(f"⚠️ Leaving unauthorized server: {guild.name} ({guild.id})")
+            await guild.leave()
+
     start_keep_alive()  # Start self-ping AFTER bot is online
 
 @bot.event
