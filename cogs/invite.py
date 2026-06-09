@@ -71,6 +71,9 @@ class InviteCog(commands.Cog):
                 if clean_id in pool:
                     pool.remove(clean_id)
                     save_json(CONFIG_FILE, server_config)
+                    guild_to_leave = ctx.bot.get_guild(int(clean_id))
+                    if guild_to_leave:
+                        await guild_to_leave.leave()
                     return await ctx.send(f"❌ Server ID `{clean_id}` removed from allowed servers list.")
                 return await ctx.send("❌ Server not found in allowed list.")
 
