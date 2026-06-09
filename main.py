@@ -88,8 +88,23 @@ async def on_ready():
 
 @bot.event
 async def setup_hook():
-    # This connects your commands.py file and syncs Slash commands
-    await bot.load_extension("commands")
+    cogs = [
+        "cogs.wordle",
+        "cogs.leaderboard",
+        "cogs.mode",
+        "cogs.difficulty",
+        "cogs.hint",
+        "cogs.reveal",
+        "cogs.endgame",
+        "cogs.help_cmd",
+        "cogs.admin",
+        "cogs.autoresponder",
+        "cogs.say",
+        "cogs.invite",
+        "cogs.ping",
+    ]
+    for cog in cogs:
+        await bot.load_extension(cog)
     await bot.tree.sync()
 
 @bot.tree.error
@@ -160,7 +175,7 @@ async def on_message(message):
                                 del active_1v1_matches[channel_id]
                         else:
                             await asyncio.sleep(2.5)
-                            cog = bot.get_cog("BotCommands")
+                            cog = bot.get_cog("ModeCog")
                             if cog:
                                 await cog.start_1v1_round(message.channel, channel_id)
                     else:
