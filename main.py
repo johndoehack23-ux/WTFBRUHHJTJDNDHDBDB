@@ -35,7 +35,7 @@ def start_keep_alive():
 
     def get_now_str():
         try:
-            with open("timezone_config.json", "r") as f:
+            with open("stats.json", "r") as f:
                 tz_name = json.load(f).get("timezone", "America/Los_Angeles")
             tz = pytz.timezone(tz_name)
         except Exception:
@@ -92,6 +92,32 @@ async def on_ready():
     m_data = load_json(MAINTENANCE_FILE, dict)
     MAINTENANCE_MODE = m_data.get("enabled", False)
     print(f"✅ Logged in as {bot.user}")
+
+    # Print timezone guide so you know what to put in stats.json
+    try:
+        with open("stats.json", "r") as f:
+            current_tz = json.load(f).get("timezone", "America/Los_Angeles")
+    except Exception:
+        current_tz = "America/Los_Angeles"
+    print("━" * 48)
+    print("  📋 TIMEZONE GUIDE — edit stats.json to change")
+    print(f"  Current: \"{current_tz}\"")
+    print("━" * 48)
+    print("  PST / PDT  →  America/Los_Angeles  (default)")
+    print("  EST / EDT  →  America/New_York")
+    print("  CST / CDT  →  America/Chicago")
+    print("  MST / MDT  →  America/Denver")
+    print("  AKST       →  America/Anchorage")
+    print("  HST        →  Pacific/Honolulu")
+    print("  GMT / UTC  →  UTC")
+    print("  BST        →  Europe/London")
+    print("  CET        →  Europe/Paris")
+    print("  JST        →  Asia/Tokyo")
+    print("  SGT        →  Asia/Singapore")
+    print("  PHT        →  Asia/Manila")
+    print("  IST        →  Asia/Kolkata")
+    print("  AEST       →  Australia/Sydney")
+    print("━" * 48)
 
     # Sweep all servers — silently leave any that aren't whitelisted
     allowed = server_config.get("allowed_servers", [])
