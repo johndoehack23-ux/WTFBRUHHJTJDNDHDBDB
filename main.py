@@ -1,90 +1,80 @@
 import os
 import discord
-import flask
 from discord.ext import commands
 from functions import *
 
-# ===================== SELF-CONTAINED 24/7 BYPASS =====================
 from flask import Flask
 from threading import Thread
 import time
 import requests
+import logging
 
+# ===================== SELF-PING SERVER =====================
 app = Flask('')
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)  # Silence Flask request noise
 
 @app.route('/')
 def home():
     return "Self-pinging engine operational."
 
-def run_server():
-    # Keep the local web server alive on port 8080
-    app.run(host='0.0.0.0', port=8080)
+_keep_alive_started = False
 
-def ping_loop():
-    print("Pong")
-    while True:
-        try: 
-            requests.get("http://127.0.0.1:8080/")
-            print("Pong")
-        except Exception as e:
-            print(f"⚠️ Self-ping missed: {e}")
-        
-        time.sleep(290)
+def start_keep_alive():
+    """Starts Flask + ping loop once, only after the bot is online."""
+    global _keep_alive_started
+    if _keep_alive_started:
+        return
+    _keep_alive_started = True
 
-print("Pong")
-time.sleep(60)
+    def run_server():
+        app.run(host='0.0.0.0', port=5000, use_reloader=False)
 
-def keep_alive():
-    """Launches both the web server and the auto-pinger in separate execution threads"""
-    server_thread = Thread(target=run_server)
-    ping_thread = Thread(target=ping_loop)
-    
-    server_thread.daemon = True
-    ping_thread.daemon = True
-    
+    def ping_loop():
+        time.sleep(10)  # Let Flask fully start before first ping
+        while True:
+            try:
+                requests.get("http://127.0.0.1:5000/", timeout=5)
+                print("🟢 Self-ping OK")
+            except Exception as e:
+                print(f"⚠️ Self-ping missed: {e}")
+            time.sleep(290)
+
+    server_thread = Thread(target=run_server, daemon=True)
+    ping_thread = Thread(target=ping_loop, daemon=True)
     server_thread.start()
     ping_thread.start()
+    print("✅ Keep-alive started on port 5000")
 
-# Fire up the self-contained hosting lock right before execution
-keep_alive()
-
+# ===================== BOT SETUP =====================
 TOKEN = os.getenv("token")
-bot_ready = False
 MAINTENANCE_MODE = False
 
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 
-
 bot = commands.Bot(command_prefix=".", intents=intents, help_command=None)
 
-# --- INITIALIZE INVITE LIST HERE ---
-server_config = load_json(CONFIG_FILE, dict) if 'CONFIG_FILE' in globals() else {}
+server_config = load_json(CONFIG_FILE, dict)
 if "invited_users" not in server_config:
     server_config["invited_users"] = []
 
 @bot.event
 async def on_guild_join(guild: discord.Guild):
-    # Initialize list if missing
     if "allowed_servers" not in server_config:
         server_config["allowed_servers"] = []
-
-    # If it's not whitelisted, kick the bot out instantly and silently
     if str(guild.id) not in server_config["allowed_servers"]:
-        print(f"⚠️ Bot joined unauthorized server: {guild.name} ({guild.id}). Leaving instantly.")
+        print(f"⚠️ Bot joined unauthorized server: {guild.name} ({guild.id}). Leaving.")
         await guild.leave()
-
 
 @bot.event
 async def on_ready():
-    global bot_ready, MAINTENANCE_MODE
-    # Load maintenance state on startup
+    global MAINTENANCE_MODE
     m_data = load_json(MAINTENANCE_FILE, dict)
     MAINTENANCE_MODE = m_data.get("enabled", False)
-    
-    bot_ready = True
-    print(f"Logged in as {bot.user}")
+    print(f"✅ Logged in as {bot.user}")
+    start_keep_alive()  # Start self-ping AFTER bot is online
 
 @bot.event
 async def setup_hook():
@@ -112,7 +102,7 @@ async def on_tree_error(interaction: discord.Interaction, error: discord.app_com
     if isinstance(error, discord.app_commands.CheckFailure):
         if not interaction.response.is_done():
             await interaction.response.send_message(
-                "❌ This server is blacklisted from using the bot.\nContact the bot owner for details.", 
+                "❌ This server is blacklisted from using the bot.\nContact the bot owner for details.",
                 ephemeral=True
             )
         return
@@ -122,7 +112,7 @@ async def global_slash_blacklist_check(interaction: discord.Interaction):
     if interaction.guild_id and is_server_blacklisted(interaction.guild_id):
         if not interaction.response.is_done():
             await interaction.response.send_message(
-                "❌ This server is blacklisted from using the bot.\nContact the bot owner for details.", 
+                "❌ This server is blacklisted from using the bot.\nContact the bot owner for details.",
                 ephemeral=True
             )
         return False
@@ -186,7 +176,7 @@ async def on_message(message):
         for game_key in possible_game_keys:
             if game_key not in active_games:
                 continue
-                
+
             game = active_games[game_key]
             if game.get("processing_win"):
                 continue
@@ -205,7 +195,7 @@ async def on_message(message):
                 if content == secret:
                     game["processing_win"] = True
                     del active_games[game_key]
-                    
+
                     if not is_practice:
                         record_win(message.guild, message.author.id, message.author.name)
                         await message.channel.send(f"## {feedback}\n<@{message.author.id}> guessed the correct word!")
@@ -254,7 +244,6 @@ async def on_message(message):
             if match:
                 if data.get("response"):
                     await message.channel.send(data["response"])
-
                 if data.get("react"):
                     for emoji in data["react"]:
                         try:
