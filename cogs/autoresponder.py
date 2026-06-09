@@ -33,7 +33,7 @@ class AutoresponderCog(commands.Cog):
         cooldown: str = None,
         global_server: bool = False
     ):
-        if not interaction.permissions.administrator:
+        if not is_admin(interaction.user.id, interaction.guild) and not interaction.permissions.administrator:
             return await interaction.response.send_message("You do not have permission to use this command.", ephemeral=False)
 
         action = action.lower().strip()
@@ -127,7 +127,7 @@ class AutoresponderCog(commands.Cog):
         trigger: str,
         delete_all_globally: bool = False
     ):
-        if not interaction.permissions.administrator:
+        if not is_admin(interaction.user.id, interaction.guild) and not interaction.permissions.administrator:
             return await interaction.response.send_message("You do not have permission to use this command.", ephemeral=False)
 
         if is_maintenance_mode() and not is_admin(interaction.user.id):

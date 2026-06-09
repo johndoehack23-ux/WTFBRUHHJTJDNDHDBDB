@@ -111,17 +111,18 @@ def is_server_blacklisted(guild_id):
 def is_admin(user_id, guild=None, check_global=False):
     """
     Core permission check structure:
-    - Only hardcoded ADMIN_IDS maintain bypass control.
-    - Whitelisted trusted users have server-level access.
+    - ADMIN_IDS always have full bypass, even in blacklisted servers.
+    - Trusted users have server-level access only in non-blacklisted servers.
     """
-    if guild and is_server_blacklisted(guild.id):
-        return False
-
     uid_str = str(user_id)
-    
-    # Global Admin Validation
+
+    # ADMIN_IDS get unconditional global bypass — checked FIRST
     if uid_str in ADMIN_IDS:
         return True
+
+    # Non-admin users are always blocked in blacklisted servers
+    if guild and is_server_blacklisted(guild.id):
+        return False
 
     # Local Trusted Server Users Check
     if guild and not check_global:
