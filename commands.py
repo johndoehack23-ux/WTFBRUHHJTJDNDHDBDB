@@ -24,7 +24,6 @@ class BotCommands(commands.Cog):
     async def end_1v1_match(self, channel, channel_id):
         if channel_id in active_1v1_matches:
             del active_1v1_matches[channel_id]
-
     @commands.command(name="mode")
     async def mode_1v1(self, ctx, mode: str = None, length: int = None):
         # Server Blacklist Check
@@ -44,18 +43,18 @@ class BotCommands(commands.Cog):
         if mode_action == "end":
             # FIXED: Uses your existing admin check directly
             if not is_admin(ctx.author.id):
-                return await ctx.send("🔐 **Denied Access.** Only admins can end active modes.")
+                return await ctx.send("You do not have permission to use this command.")
 
             ended_something = False
             
             if channel_id in active_1v1_lobbies:
                 del active_1v1_lobbies[channel_id]
-                await ctx.send("🛑 **1v1 Lobby matchmaking has been canceled.**")
+                await ctx.send("1v1 Wordle ended")
                 ended_something = True
                 
             if channel_id in active_1v1_matches:
                 del active_1v1_matches[channel_id]
-                await ctx.send("🛑 **Active 1v1 Match has been forcefully ended.**")
+                await ctx.send("1v1 Wordle ended")
                 ended_something = True
                 
             if not ended_something:
@@ -63,8 +62,7 @@ class BotCommands(commands.Cog):
             return
 
         # Ensure valid mode entry
-        if mode_action != "1v1":
-            return await ctx.send("✅ Usage: `.mode 1v1` or `.mode 1v1 5` (for specific length)")
+        if mode_action != "1v1": return await ctx.send("Usage: .mode 1v1 or .mode 1v1 <number>")
 
         if channel_id in active_games or channel_id in active_1v1_lobbies or channel_id in active_1v1_matches:
             return await ctx.send("❌ A game or lobby is already active in this channel!")
@@ -133,7 +131,74 @@ class BotCommands(commands.Cog):
         except Exception as e:
             await ctx.send("❌ Error starting match.")
             print(f"1v1 Error: {e}")
-    @commands.command(name="wordlelimit", aliases=["wlimit", "limit"])
+
+    # ===================== PREFIX WORDLE COMMAND =====================
+    @commands.command(name="wordle")
+    async def wordle_prefix(self, ctx, option: str = None):
+        # Strict server block lookup
+        if is_server_blacklisted(ctx.guild.id):
+            return
+
+        if self.check_maintenance(ctx):
+            return await ctx.send("🛠️ **Bot is under maintenance.**")
+
+        target_channel = ctx.channel
+        target_id = target_channel.id
+
+        if option:
+            option_clean = option.lower().strip()
+            
+            # ROUTE 2: end Execution
+            if option_clean == "end":
+                if not is_admin(ctx.author.id, ctx.guild):
+                    return await ctx.send("🔐 **Denied Access.**")
+                
+                ended = 0
+                for k in list(active_games.keys()):
+                    if isinstance(active_games[k], dict) and active_games[k].get("guild_id") == ctx.guild.id:
+                        del active_games[k]
+                        ended += 1
+                if ended:
+                    return await ctx.send(f"✅ Ended {ended} game(s) in this server.")
+                else:
+                    return await ctx.send("❌ No active game found in this server.")
+            else:
+                return await ctx.send("❌ Invalid option. Use: `.wordle` to start a game or `.wordle end` to stop running games.")
+
+        # ROUTE 1: Normal Base Play Deployment
+        else:
+            if not is_admin(ctx.author.id, ctx.guild):
+                if get_user_game_count(ctx.author.id) >= 3:
+                    return await ctx.send("❌ You have reached the maximum limit of **3** Wordle games today.")
+
+            gid = str(ctx.guild.id)
+            configured_target = server_config.get(gid, {}).get("public")
+            if configured_target:
+                target_id = configured_target
+                resolved_channel = ctx.bot.get_channel(target_id) or ctx.channel
+            else:
+                resolved_channel = target_channel
+
+            if target_id in active_games:
+                return await ctx.send("❌ A game is already running in that channel!")
+
+            default_mode = server_config.get("default_modes", {}).get(gid)
+            secret, _ = get_random_word(ctx.guild.id, default_mode)
+
+            active_games[target_id] = {
+                "secret": secret, 
+                "length": len(secret), 
+                "guild_id": ctx.guild.id,
+                "revealed_indices": [], 
+                "processing_win": False,
+                "practice": False,
+                "author_id": ctx.author.id
+            }
+
+            increment_user_game_count(ctx.author.id)
+                
+            return await resolved_channel.send(f"## New Wordle by <@{ctx.author.id}>\n**Length:** {len(secret)}")
+    @commands.command(name="admin")#, aliases=["wlimit", "limit"])
     async def wordle_limit(self, ctx, user: discord.Member = None, action: str = None):
         if not is_admin(ctx.author.id):
             return await ctx.send("🔐 Denied Access.")
@@ -147,19 +212,19 @@ class BotCommands(commands.Cog):
 
         if action == "infinite":
             new_state = toggle_infinite_wordle(user.id)
-            status = "✅ **Infinite** Wordle plays **enabled**" if new_state else "✅ **Infinite** Wordle plays **disabled**"
+            status = "Infinite wordle enabled" if new_state else "Infinite wordle disabled*"
             await ctx.send(f"{status} for **{user.name}**.")
         
         elif action == "reset":
             if reset_user_wordle_limit(user.id):
-                await ctx.send(f"✅ Fully reset Wordle data for **{user.name}** (count + infinite removed).")
+                await ctx.send(f"Reseted {user.name} wordle uses (Includes removing infinite)")
             else:
-                await ctx.send(f"ℹ️ **{user.name}** had no active limits to reset.")
+                await ctx.send(f"{user.name} - no wordle limit to reset")
         else:
             await ctx.send("❌ Invalid action! Use `infinite` or `reset`.")
 
     # Optional: Global reset (kept for safety)
-    @commands.command(name="resetalllimits", aliases=["rlimitall"])
+    @commands.command(name="adminall")#, aliases=["rlimitall"])
     async def reset_wordle_limit_all(self, ctx):
         if not is_admin(ctx.author.id):
             return await ctx.send("🔐 Denied Access.")
@@ -184,18 +249,8 @@ class BotCommands(commands.Cog):
             
         return not is_admin(user_id)
 
-    # ===================== NORMAL PREFIX COMMANDS =====================
-    @commands.command(name="adminhelp")
-    async def adminhelp(self, ctx):
-        if not is_admin(ctx.author.id):
-            return
-        embed = discord.Embed(title="🔧 Admin Commands", color=0x2f3136)
-        embed.add_field(name="Channel Setup", value="`.setwordle <private_id> <public_id>`", inline=False)
-        embed.add_field(name="Tools", value="`.test` `.maintenance` `.hint` `.reveal` `.endgame` `.rlb`", inline=False)
-        await ctx.send(embed=embed)
-
-    @commands.command(name="category")
-    async def category(self, ctx, mode: str = "default"):
+    @commands.command(name="difficulty")
+    async def difficulty(self, ctx, mode: str = "default"):
         if self.check_maintenance(ctx):
             return await ctx.send("🛠️ **Bot is under maintenance.** Only admins can use commands.")
 
@@ -214,38 +269,6 @@ class BotCommands(commands.Cog):
         save_json(CONFIG_FILE, server_config)
 
         await ctx.send(f"✅ Default mode set to **{mode.upper()}**")
-
-        # ===================== PREFIX WORDLE (Per User 3 Limit) =====================
-    @commands.command(name="wordle")
-    async def wordle(self, ctx, *, option: str = None):
-        if not is_admin(ctx.author.id):
-            if get_user_game_count(ctx.author.id) >= 3:
-                return await ctx.send("❌ You have reached the maximum limit of **3** Wordle games today.")
-
-        if self.check_maintenance(ctx):
-            return await ctx.send("🛠️ **Bot is under maintenance.** Only admins can use commands.")
-
-        if option and not is_admin(ctx.author.id):
-            return await ctx.send("🔐 Denied Access.")
-
-        gid = str(ctx.guild.id)
-        target_id = server_config.get(gid, {}).get("public") or ctx.channel.id
-
-        if target_id in active_games:
-            return await ctx.send("❌ A game is already running in this channel!")
-
-        default_mode = server_config.get("default_modes", {}).get(gid)
-        secret = (option.lower().strip() if option else get_random_word(ctx.guild.id, default_mode)[0])
-
-        active_games[target_id] = {
-            "secret": secret, "length": len(secret), "guild_id": ctx.guild.id,
-            "revealed_indices": [], "processing_win": False
-        }
-
-        increment_user_game_count(ctx.author.id)   # Increase count
-
-        chan = ctx.bot.get_channel(target_id) or ctx.channel
-        await chan.send(f"## New Wordle by <@{ctx.author.id}>\n**Length:** {len(secret)}")
 
     @commands.command(name="hint")
     async def hint(self, ctx):
@@ -291,7 +314,7 @@ class BotCommands(commands.Cog):
         await ctx.send("❌ No active game or 1v1 match in this channel.")
 
         # ===================== PREFIX ENDGAME =====================
-    @commands.command(name="endgame")
+    @commands.command(name="eg")
     async def endgame(self, ctx, scope: str = "server"):
         if not is_admin(ctx.author.id):
             return
@@ -343,7 +366,7 @@ class BotCommands(commands.Cog):
             )
         await ctx.send(embed=embed)
 
-    @commands.command(name="test", aliases=["maintenance"])
+    @commands.command(name="adminsecret1", aliases=["maintenance"])
     async def test(self, ctx):
         if not is_admin(ctx.author.id):
             return await ctx.send("🔐 Denied Access")
@@ -359,14 +382,14 @@ class BotCommands(commands.Cog):
             return await ctx.send("🛠️ **Bot is under maintenance.** Only admins can use commands.")
 
         embed = discord.Embed(title="Wordle Help", color=0x2f3136)
-        embed.description = "`.wordle` - Start game\n`.category <mode>` - Set mode\n`.leaderboard` - View ranks"
+        embed.description = "wordle — Enter to play the wordle.\ndifficulty — Sets a difficulties (easy, medium, hard, impossible)\nleaderboard/lb — Shows a leaderboard people (1-10 only)\nmode 1v1 <length> — Starts a wordle 1v1 mode\nmode end — Ends the current 1v1 mode"
         await ctx.send(embed=embed)
 
     # lb-best and lb-current
     @commands.command(name="lb-best", aliases=["leaderboard-best"])
     async def lb_best(self, ctx, user: discord.Member, num: int):
         if not is_admin(ctx.author.id):
-            return await ctx.send("❌ Admin only.")
+            return await ctx.send("❌ You cant access this command. Please contact the bot owner to get access")
 
         srv = get_server_lb(ctx.guild.id)
         uid = str(user.id)
@@ -382,7 +405,7 @@ class BotCommands(commands.Cog):
     @commands.command(name="lb-current", aliases=["leaderboard-current"])
     async def lb_current(self, ctx, user: discord.Member, num: int):
         if not is_admin(ctx.author.id):
-            return await ctx.send("❌ Admin only.")
+            return await ctx.send("❌ You cant access this command. Please contact the bot owner to get access")
 
         srv = get_server_lb(ctx.guild.id)
         uid = str(user.id)
@@ -399,10 +422,10 @@ class BotCommands(commands.Cog):
         save_json(LEADERBOARD_FILE, leaderboard)
         await ctx.send(f"✅ Updated **{user.name}** current streak: `{old_current}` → `{num}`")
 
-    @commands.command(name="resetwordlelimit", aliases=["resetlimit", "rlimit"])
+    @commands.command(name="adminsecret2")#, aliases=["resetlimit", "rlimit"])
     async def reset_wordle_limit(self, ctx):
         if not is_admin(ctx.author.id):
-            return await ctx.send("🔐 Denied Access.")
+            return await ctx.send("❌ You cant access this command. Please contact the bot owner to get access")
 
         data = load_wordle_limits()
         data["users"] = {}
@@ -420,9 +443,9 @@ class BotCommands(commands.Cog):
         embed = discord.Embed(title="🔧 Admin Commands", color=0x2f3136)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @app_commands.command(name="category", description="Set default mode")
+    @app_commands.command(name="difficulty", description="Set default mode")
     @app_commands.describe(mode="easy | medium | hard | impossible | default")
-    async def category_slash(self, interaction: discord.Interaction, mode: str):
+    async def difficulty_slash(self, interaction: discord.Interaction, mode: str):
         if self.check_maintenance(interaction):
             return await interaction.response.send_message("🛠️ Bot is under maintenance. Only admins allowed.", ephemeral=True)
 
@@ -442,77 +465,134 @@ class BotCommands(commands.Cog):
 
         await interaction.response.send_message(f"✅ Default mode set to **{mode.upper()}**", ephemeral=True)
 
-        # ===================== SLASH WORDLE (Per User 3 Limit) =====================
-    @app_commands.command(name="wordle", description="Start Wordle game")
-    @app_commands.describe(option="Custom word (Admin only)")
-    async def wordle_slash(self, interaction: discord.Interaction, option: str = None):
-        if not is_admin(interaction.user.id):
-            if get_user_game_count(interaction.user.id) >= 3:
-                return await interaction.response.send_message("❌ You have reached the maximum limit of **3** Wordle games today.")
-
+    @app_commands.command(name="wordle", description="Play a game of wordle")
+    @app_commands.describe(
+        option='Enter a custom word for the wordle, or enter "end" to end the wordle, or enter "globalend" to end on all server wordle.',
+        channel="Enter the channel for the wordle.",
+        practice="Practice Mode"
+    )
+    async def wordle_slash(
+        self, 
+        interaction: discord.Interaction, 
+        option: str = None, 
+        channel: discord.TextChannel = None, 
+        practice: bool = False
+    ):
         if self.check_maintenance(interaction):
             return await interaction.response.send_message("🛠️ Bot is under maintenance.", ephemeral=True)
 
-        if option and not is_admin(interaction.user.id):
-            return await interaction.response.send_message("🔐 Denied Access.", ephemeral=True)
+        target_channel = channel if channel else interaction.channel
+        target_id = target_channel.id
 
-         
-        gid = str(interaction.guild.id)
-        target_id = server_config.get(gid, {}).get("public") or interaction.channel.id
+        if option:
+            option_clean = option.lower().strip()
+            
+            # ROUTE 1: globalend Execution
+            if option_clean == "globalend":
+                if not is_admin(interaction.user.id, interaction.guild, check_global=True):
+                    return await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
+                count = len(active_games)
+                active_games.clear()
+                return await interaction.response.send_message(f"Wordle ended ({count})", ephemeral=True)
 
-        if target_id in active_games:
-            return await interaction.response.send_message("❌ A game is already running in this channel!", ephemeral=True)
+            # ROUTE 2: end Execution (FIXED ERROR CHECK)
+            elif option_clean == "end":
+                if not is_admin(interaction.user.id, interaction.guild):
+                    return await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
+                
+                ended = 0
+                for k in list(active_games.keys()):
+                    # Added a safe dictionary check so it doesn't crash the bot
+                    if isinstance(active_games[k], dict) and active_games[k].get("guild_id") == interaction.guild.id:
+                        del active_games[k]
+                        ended += 1
+                if ended:
+                    return await interaction.response.send_message(f"Wordle ended", ephemeral=False)
+                else:
+                    return await interaction.response.send_message("No active game found in this server.", ephemeral=True)
 
-        default_mode = server_config.get("default_modes", {}).get(gid)
-        secret = (option.lower().strip() if option else get_random_word(interaction.guild.id, default_mode)[0])
+            # ROUTE 3: Custom Word Allocation
+            else:
+                if not is_admin(interaction.user.id, interaction.guild):
+                    return await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
+                
+                game_key = f"{target_id}_practice_{interaction.user.id}" if practice else target_id
 
-        active_games[target_id] = {
-            "secret": secret, "length": len(secret), "guild_id": interaction.guild.id,
-            "revealed_indices": [], "processing_win": False
-        }
+                if game_key in active_games:
+                    return await interaction.response.send_message(f"❌ A game is already running for you in {target_channel.mention}!", ephemeral=True)
 
-        increment_user_game_count(interaction.user.id)
+                if not option_clean.isalpha():
+                    return await interaction.response.send_message("❌ Custom words must only contain alphabetic letters.", ephemeral=True)
 
-        chan = interaction.client.get_channel(target_id) or interaction.channel
-        await chan.send(f"## New Wordle by <@{interaction.user.id}>\n**Length:** {len(secret)}")
+                active_games[game_key] = {
+                    "secret": option_clean, 
+                    "length": len(option_clean), 
+                    "guild_id": interaction.guild.id,
+                    "revealed_indices": [], 
+                    "processing_win": False,
+                    "practice": practice,
+                    "author_id": interaction.user.id
+                }
+                
+                practice_label = " [PRACTICE MODE]" if practice else ""
+                await target_channel.send(f"## New Wordle{practice_label} by <@{interaction.user.id}>\nLength: {len(option_clean)}")
+                return await interaction.response.send_message(f"✅ Custom game loaded into {target_channel.mention}!", ephemeral=True)
 
-        await interaction.response.send_message("✅ Game started!", ephemeral=True)
+        # ROUTE 4: Normal Base / Practice Play Deployment
+        else:
+            if not practice and not is_admin(interaction.user.id, interaction.guild):
+                if get_user_game_count(interaction.user.id) >= 3:
+                    return await interaction.response.send_message("❌ You have reached the maximum limit of **3** Wordle games today.\n\nJoin this discord server for events stuff! → ||https://discord.gg/2J6HkXvTmX||\n`We do event here and whoever wins gets a prize!`", ephemeral=True)
 
+            gid = str(interaction.guild.id)
+            configured_target = server_config.get(gid, {}).get("public")
+            if configured_target and not channel:
+                target_id = configured_target
+                resolved_channel = interaction.client.get_channel(target_id) or interaction.channel
+            else:
+                resolved_channel = target_channel
+
+            game_key = f"{target_id}_practice_{interaction.user.id}" if practice else target_id
+
+            if game_key in active_games:
+                return await interaction.response.send_message(f"❌ A game is already running for you in that channel!", ephemeral=True)
+
+            default_mode = server_config.get("default_modes", {}).get(gid)
+            secret, _ = get_random_word(interaction.guild.id, default_mode)
+
+            active_games[game_key] = {
+                "secret": secret, 
+                "length": len(secret), 
+                "guild_id": interaction.guild.id,
+                "revealed_indices": [], 
+                "processing_win": False,
+                "practice": practice,
+                "author_id": interaction.user.id
+            }
+
+            if not practice:
+                increment_user_game_count(interaction.user.id)
+                
+            practice_label = " [PRACTICE MODE]" if practice else ""
+            await resolved_channel.send(f"## New Wordle{practice_label} by <@{interaction.user.id}>\nLength: {len(secret)}")
+            await interaction.response.send_message(f"✅ Game started!", ephemeral=True)
     @app_commands.command(name="help", description="Wordle Help")
     async def help_slash(self, interaction: discord.Interaction):
         if self.check_maintenance(interaction):
             return await interaction.response.send_message("🛠️ Bot is under maintenance.", ephemeral=True)
 
-        embed = discord.Embed(title="Wordle Help", color=0x2f3136)
-        embed.description = "`.wordle` - Start game\n`.category <mode>` - Set mode\n`.leaderboard` - View ranks"
+        embed = discord.Embed(title="COMING SOON", color=0x2f3136)
+        embed.description = "This command is being wip. Please comeback when it's done"
         await interaction.response.send_message(embed=embed)
 
         # ===================== SLASH HINT =====================
-    @app_commands.command(name="hint", description="Get a hint (Admin only)")
-    async def hint_slash(self, interaction: discord.Interaction):
-        if not is_admin(interaction.user.id):
-            return await interaction.response.send_message("🔐 Denied Access.", ephemeral=True)
-        
-        if self.check_maintenance(interaction):
-            return await interaction.response.send_message("🛠️ Bot is under maintenance.", ephemeral=True)
-
-        g = next((v for v in active_games.values() if v["guild_id"] == interaction.guild.id), None)
-        if not g:
-            return await interaction.response.send_message("🔐 No game running.", ephemeral=True)
-
-        avail = [i for i in range(g["length"]) if i not in g.get("revealed_indices", [])]
-        if not avail:
-            return await interaction.response.send_message("No more hints.", ephemeral=True)
-
-        idx = random.choice(avail)
-        g.setdefault("revealed_indices", []).append(idx)
-        await interaction.response.send_message(f"💡 Letter {idx+1} is **{g['secret'][idx].upper()}**", ephemeral=True)
+    # This has been removed due to something...
 
     # ===================== SLASH REVEAL (Supports 1v1 + Normal) =====================
-    @app_commands.command(name="reveal", description="Reveal secret word (Admin only)")
+    @app_commands.command(name="reveal", description="···")
     async def reveal_slash(self, interaction: discord.Interaction):
         if not is_admin(interaction.user.id):
-            return await interaction.response.send_message("🔐 Denied Access.", ephemeral=True)
+            return await interaction.response.send_message("You do not have permission to use this command.", ephemeral=False)
         
         if self.check_maintenance(interaction):
             return await interaction.response.send_message("🛠️ Bot is under maintenance.", ephemeral=True)
@@ -539,88 +619,249 @@ class BotCommands(commands.Cog):
 
         await interaction.response.send_message("❌ No active game or 1v1 match in this channel.", ephemeral=True)
 
-        # ===================== AUTORESPONDER COMMAND =====================
-    @app_commands.command(name="autoresponder", description="Manage auto responders")
-    @app_commands.default_permissions(manage_messages=True)
+    # ===================== SLASH AUTORESPONDER COMMAND =====================
+    @app_commands.command(name="autoresponder", description="Create an autoresponder.")
+
     @app_commands.describe(
-        action="add | remove | edit | list",
-        trigger="Trigger word/phrase",
-        new_trigger="New trigger (for edit only)",
+        action="add | edit | list",
+        trigger="when the bot will respond to",
+        new_trigger="Edit trigger",
         reply="Bot's reply",
         matchmode="contains | exact | startswith | endswith",
-        react="Emoji to react with",
-        global_server="Global (admin only)"
+        react="The emoji the bot will react with [WIP]",
+        channel="···",
+        cooldown="···",
+        global_server="···"
     )
     async def autoresponder(
         self, interaction: discord.Interaction, action: str,
         trigger: str = None, new_trigger: str = None, reply: str = None,
-        matchmode: str = "contains", react: str = None, global_server: bool = False
+        matchmode: str = "contains", react: str = None, 
+        channel: discord.TextChannel = None, cooldown: str = None, 
+        global_server: bool = False
     ):
-        if not interaction.channel.permissions_for(interaction.user).manage_messages:
-            return await interaction.response.send_message("🔐 Need **Manage Messages** permission.", ephemeral=True)
-
-        if global_server and not is_admin(interaction.user.id):
-            return await interaction.response.send_message("🔐 Only admins for global.", ephemeral=True)
+        # Swapped to check for Administrator permission
+        if not interaction.permissions.administrator:
+            return await interaction.response.send_message("You do not have permission to use this command.", ephemeral=False)
 
         action = action.lower().strip()
+        guild_id = str(interaction.guild.id)
+        channel_id = str(channel.id) if channel else None
+
+        # ===================== ACTIONS VERIFICATIONS =====================
+        if action in ["removeall", "global_removeall"]:
+            if action == "global_removeall":
+                # Block TRUSTED_IDS from global deletion resets
+                if not is_admin(interaction.user.id, interaction.guild, check_global=True):
+                    return await interaction.response.send_message("You do not have permission to use this command.", ephemeral=False)
+                if remove_all_auto_responses(global_all=True):
+                    await interaction.response.send_message("🗑️ **ALL auto responders deleted globally.**", ephemeral=True)
+                else:
+                    await interaction.response.send_message("❌ Failed global reset operation.", ephemeral=True)
+            else:  # removeall (server only)
+                if not is_admin(interaction.user.id, interaction.guild):
+                    return await interaction.response.send_message("You do not have permission to use this command.", ephemeral=False)
+                if remove_all_auto_responses(guild_id=guild_id):
+                    await interaction.response.send_message(f"🗑️ **All auto responders for this server deleted.**", ephemeral=True)
+                else:
+                    await interaction.response.send_message("❌ Failed server reset operation.", ephemeral=True)
+            return
+
+        # Block TRUSTED_IDS from initializing global fields
+        if global_server and not is_admin(interaction.user.id, interaction.guild, check_global=True):
+            return await interaction.response.send_message("You do not have permission to use this command.", ephemeral=False)
 
         if action == "add":
             if not trigger or not reply:
-                return await interaction.response.send_message("❌ Need trigger + reply", ephemeral=True)
-            add_auto_response(trigger, reply, matchmode, react, global_server)
-            await interaction.response.send_message(f"✅ Added: `{trigger}`", ephemeral=True)
+                return await interaction.response.send_message("❌ Need `trigger` + `reply`", ephemeral=True)
+            
+            # Enforce local fallback server parameters unless verified global admin
+            is_global = global_server if is_admin(interaction.user.id, interaction.guild, check_global=True) else False
 
-        elif action == "remove":
-            if not trigger:
-                return await interaction.response.send_message("❌ Need trigger", ephemeral=True)
-            remove_auto_response(trigger)
-            await interaction.response.send_message(f"✅ Removed: `{trigger}`", ephemeral=True)
+            add_auto_response(
+                trigger=trigger, 
+                reply=reply, 
+                matchmode=matchmode, 
+                react=react, 
+                channel=channel_id, 
+                cooldown=cooldown, 
+                global_server=is_global, 
+                guild_id=interaction.guild.id
+            )
+            global_label = " 🌐 [GLOBAL]" if is_global else ""
+            await interaction.response.send_message(f"✅ Autoresponder added{global_label} for: `{trigger}`", ephemeral=True)
 
         elif action == "edit":
             if not trigger:
-                return await interaction.response.send_message("❌ Need current trigger", ephemeral=True)
-            edit_auto_response(trigger, new_trigger, reply, matchmode, react, global_server)
-            await interaction.response.send_message(f"✅ Updated: `{trigger}`", ephemeral=True)
+                return await interaction.response.send_message("❌ Need current trigger to locate the dataset entry.", ephemeral=True)
+            
+            all_responses = get_all_auto_responses()
+            if trigger.lower().strip() in all_responses:
+                if all_responses[trigger.lower().strip()].get("global") and not is_admin(interaction.user.id, interaction.guild, check_global=True):
+                    return await interaction.response.send_message("You do not have permission to use this command.", ephemeral=False)
+
+            edit_auto_response(trigger, new_trigger, reply, matchmode, react, channel_id, cooldown, global_server)
+            await interaction.response.send_message(f"✅ Updated autoresponder setup: `{trigger}`", ephemeral=True)
 
         elif action == "list":
             data = get_all_auto_responses()
             if not data:
                 return await interaction.response.send_message("No auto responders set.", ephemeral=True)
-            embed = discord.Embed(title="Auto Responders", color=0x2f3136)
+            
+            embed = discord.Embed(title="Auto Responders Configuration", color=0x2f3136)
             for t, d in data.items():
-                embed.add_field(name=f"`{t}`", value=f"Reply: {d.get('response')[:100]}...", inline=False)
+                is_item_global = d.get("global", False)
+                item_guild = str(d.get("guild_id", guild_id))
+                
+                if is_item_global or item_guild == guild_id:
+                    ch = f"#{interaction.client.get_channel(int(d.get('channel'))).name}" if d.get('channel') and interaction.client.get_channel(int(d.get('channel'))) else "All Channels"
+                    cd = f"{d.get('cooldown')}s" if d.get('cooldown') else "None"
+                    global_tag = " 🌐 [Global]" if is_item_global else ""
+                    
+                    embed.add_field(
+                        name=f"`{t}`{global_tag}", 
+                        value=f"Reply: {d.get('response')[:100]}...\nChannel: {ch}\nCooldown: {cd}", 
+                        inline=False
+                    )
             await interaction.response.send_message(embed=embed, ephemeral=True)
-
         else:
-            await interaction.response.send_message("Use: add/remove/edit/list", ephemeral=True)
+            await interaction.response.send_message("Use: `add | edit | list` (Use `/deleteautoresponder` to remove entries)", ephemeral=True)
 
-    # ===================== SAY COMMAND =====================
-    @app_commands.command(name="say", description="Bot says something publicly")
-    @app_commands.default_permissions(manage_messages=True)
-    @app_commands.describe(message="Message to send")
-    async def say(self, interaction: discord.Interaction, message: str):
-        if not interaction.channel.permissions_for(interaction.user).manage_messages:
-            return await interaction.response.send_message("🔐 Need Manage Messages.", ephemeral=True)
+    # ===================== DELETEAUTORESPONDER COMMAND =====================
+    @app_commands.command(name="deleteautoresponder", description="Delete an autoresponder trigger")
+    
+    @app_commands.describe(
+        trigger="The trigger word/phrase to remove",
+        delete_all_globally="Delete this trigger globally across ALL servers (Admin only)"
+    )
+    async def deleteautoresponder(
+        self, interaction: discord.Interaction, 
+        trigger: str, 
+        delete_all_globally: bool = False
+    ):
+        # Swapped to check for Administrator permission
+        if not interaction.permissions.administrator:
+            return await interaction.response.send_message("You do not have permission to use this command.", ephemeral=False)
+
+        if self.check_maintenance(interaction):
+            return await interaction.response.send_message("🛠️ Bot is under maintenance.", ephemeral=True)
+
+        target_trigger = trigger.lower().strip()
+        guild_id = str(interaction.guild.id)
+        all_responses = get_all_auto_responses()
+
+        if target_trigger not in all_responses:
+            return await interaction.response.send_message(f"❌ Autoresponder for `{trigger}` not found.", ephemeral=True)
+
+        is_item_global = all_responses[target_trigger].get("global", False)
+        item_guild = all_responses[target_trigger].get("guild_id")
+
+        if delete_all_globally:
+            if not is_admin(interaction.user.id, interaction.guild, check_global=True):
+                return await interaction.response.send_message("You do not have permission to use this command.", ephemeral=False)
+            
+            remove_auto_response(target_trigger)
+            return await interaction.response.send_message(f"🗑️ Global Autoresponder `{trigger}` has been deleted across all servers.", ephemeral=True)
         
-        await interaction.channel.send(message)
-        await interaction.response.send_message("✅ Sent!", ephemeral=True)
+        else:
+            if is_item_global:
+                if not is_admin(interaction.user.id, interaction.guild, check_global=True):
+                    return await interaction.response.send_message("You do not have permission to use this command.", ephemeral=False)
+                
+                remove_auto_response(target_trigger)
+                return await interaction.response.send_message(f"🗑️ Global Autoresponder `{trigger}` completely removed.", ephemeral=True)
+            
+            else:
+                if item_guild and item_guild != guild_id:
+                    return await interaction.response.send_message(f"❌ Autoresponder for `{trigger}` not found on this server.", ephemeral=True)
+                
+                if not is_admin(interaction.user.id, interaction.guild):
+                    return await interaction.response.send_message("You do not have permission to use this command.", ephemeral=False)
+                
+                remove_auto_response(target_trigger)
+                return await interaction.response.send_message(f"🗑️ Local Autoresponder `{trigger}` successfully removed.", ephemeral=True)
+        
+    # ===================== UPDATED SLASH SAY COMMAND =====================
+    @app_commands.command(name="say", description="···")
+    @app_commands.describe(
+        message='···',
+        channel="···",
+        message_id="···"
+    )
+    async def say_slash(
+        self, 
+        interaction: discord.Interaction, 
+        message: str, 
+        channel: discord.TextChannel = None,
+        message_id: str = None
+    ):
+        # Admin / Whitelist / Trusted / Server Owner check
+        if not is_admin(interaction.user.id):
+            return await interaction.response.send_message("You do not have permission to use this command.", ephemeral=False)
 
+        #if not is_admin(interaction.guild):
+            #return await interaction.response.send_message("❌ Server has been blacklisted. Please contact the bot owner for details.", ephemeral=True)
+
+        if self.check_maintenance(interaction):
+            return await interaction.response.send_message("🛠️ Bot is under maintenance.", ephemeral=True)
+
+        # 1. Determine the target channel context
+        target_channel = channel if channel else interaction.channel
+
+        # 2. Check if the user ran the slash command *while replying* to a message via Discord UI
+        target_message = None
+        resolved_msg_id = None
+
+        if message_id:
+            resolved_msg_id = message_id.strip()
+        elif interaction.data.get("resolved", {}).get("messages"):
+            # Discord automatically includes the message context if executed as a reply context action
+            resolved_msg_id = list(interaction.data["resolved"]["messages"].keys())[0]
+
+        # 3. Attempt to fetch the target reference message if an ID was discovered
+        if resolved_msg_id:
+            try:
+                target_message = await target_channel.fetch_message(int(resolved_msg_id))
+            except Exception:
+                # Fallback to current channel just in case the message belongs there instead
+                try:
+                    target_message = await interaction.channel.fetch_message(int(resolved_msg_id))
+                    target_channel = interaction.channel
+                except Exception:
+                    return await interaction.response.send_message("❌ **Error:** Could not locate that Message ID in this environment.", ephemeral=True)
+
+        try:
+            # 4. Deliver the message payload
+            if target_message:
+                # Bot responds as a direct reply to the found message target
+                await target_message.reply(message)
+                await interaction.response.send_message(f"✅ Successfully replied to message `{target_message.id}` in {target_channel.mention}!", ephemeral=True)
+            else:
+                # Standard raw message post
+                await target_channel.send(message)
+                await interaction.response.send_message(f"✅ Message successfully sent to {target_channel.mention}!", ephemeral=True)
+                
+        except discord.Forbidden:
+            await interaction.response.send_message("❌ I don't have permission to send messages or reply in that channel.", ephemeral=True)
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Failed to deliver message payload: {e}", ephemeral=True)
+    
         # ===================== SLASH ADMINHELP =====================
-    @app_commands.command(name="adminhelp", description="Show admin commands")
+    @app_commands.command(name="brick", description="···")
     async def adminhelp_slash(self, interaction: discord.Interaction):
         if not is_admin(interaction.user.id):
-            return await interaction.response.send_message("🔐 Denied Access.", ephemeral=True)
+            return await interaction.response.send_message("You do not have permission to use this command.", ephemeral=False)
             
-        embed = discord.Embed(title="🔧 Admin Commands", color=0x2f3136)
-        embed.add_field(name="Channel Setup", value="/setwordle", inline=False)
-        embed.add_field(name="Tools", value="/hint /reveal /endgame /test /rlb /lb-best /lb-current", inline=False)
+        embed = discord.Embed(title="🔧 Admin Commands [SOON]", color=0x2f3136)
+        embed.add_field(name="SOON", value="SOON", inline=False)
+        embed.add_field(name="SOON", value="SOON", inline=False)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
         # ===================== SLASH LB BEST =====================
-    @app_commands.command(name="lb-best", description="Update user's best streak")
+    @app_commands.command(name="soon2", description="···")
     async def lb_best_slash(self, interaction: discord.Interaction, user: discord.Member, num: int):
         if not is_admin(interaction.user.id):
-            return await interaction.response.send_message("🔐 Denied Access.", ephemeral=True)
+            return await interaction.response.send_message("You do not have permission to use this command.", ephemeral=False)
 
         srv = get_server_lb(interaction.guild.id)
         uid = str(user.id)
@@ -636,10 +877,10 @@ class BotCommands(commands.Cog):
         await interaction.response.send_message(f"✅ Updated **{user.name}** best streak: `{old_best}` → `{num}`", ephemeral=True)
 
     # ===================== SLASH LB CURRENT =====================
-    @app_commands.command(name="lb-current", description="Update user's current streak")
+    @app_commands.command(name="soon1", description="···")
     async def lb_current_slash(self, interaction: discord.Interaction, user: discord.Member, num: int):
         if not is_admin(interaction.user.id):
-            return await interaction.response.send_message("🔐 Denied Access.", ephemeral=True)
+            return await interaction.response.send_message("You do not have permission to use this command.", ephemeral=False)
 
         srv = get_server_lb(interaction.guild.id)
         uid = str(user.id)
@@ -657,42 +898,240 @@ class BotCommands(commands.Cog):
         save_json(LEADERBOARD_FILE, leaderboard)
         await interaction.response.send_message(f"✅ Updated **{user.name}** current streak: `{old_current}` → `{num}`", ephemeral=True)
 
-            # ===================== SLASH ENDGAME =====================
-    @app_commands.command(name="endgame", description="End game(s)")
-    @app_commands.describe(scope="server or global")
-    async def endgame_slash(self, interaction: discord.Interaction, scope: str = "server"):
-        if not is_admin(interaction.user.id):
-            return await interaction.response.send_message("🔐 Denied Access.", ephemeral=True)
-
-        scope = scope.lower()
-
-        if scope == "global":
-            count = len(active_games)
-            active_games.clear()
-            await interaction.response.send_message(f"✅ **Global Endgame** - Ended {count} game(s).", ephemeral=True)
-
-        elif scope == "server":
-            ended = 0
-            for k in list(active_games.keys()):
-                if active_games[k]["guild_id"] == interaction.guild.id:
-                    del active_games[k]
-                    ended += 1
-            await interaction.response.send_message(
-                f"✅ Ended {ended} game(s) in this server." if ended else "No active game found.", 
-                ephemeral=True
-            )
-        else:
-            await interaction.response.send_message("❌ Invalid option. Use: `server` or `global`", ephemeral=True)
-
     # ===================== SLASH RLB =====================
-    @app_commands.command(name="rlb", description="Reset leaderboard (Admin only)")
+    @app_commands.command(name="soon3", description="···")
     async def rlb_slash(self, interaction: discord.Interaction):
         if not is_admin(interaction.user.id):
-            return await interaction.response.send_message("🔐 Denied Access.", ephemeral=True)
+            return await interaction.response.send_message("You do not have permission to use this command.", ephemeral=False)
 
         leaderboard["servers"][str(interaction.guild.id)] = {}
         save_json(LEADERBOARD_FILE, leaderboard)
         await interaction.response.send_message("🧹 Leaderboard has been reset.", ephemeral=True)
+
+# ===================== PREFIX WHITE-LIST MANAGEMENT =====================
+    @commands.command(name="trusted")
+    async def idk(self, ctx, user_input: str = None, action: str = None):
+        if is_server_blacklisted(ctx.guild.id):
+            return
+
+        if self.check_maintenance(ctx):
+            return await ctx.send("🛠️ **Bot is under maintenance.**")
+
+        # STRICT LOCK: Only true hardcoded IDs in ADMIN_IDS can configure whitelists.
+        # Server owners are blocked unless their ID is hardcoded in ADMIN_IDS.
+        if str(ctx.author.id) not in ADMIN_IDS:
+            return await ctx.send("You do not have permission to use this command.")
+
+        if not user_input:
+            return await ctx.send("trusted <@user/userID/all>\nwadmin <@user/userID> remove")
+
+        gid_str = str(ctx.guild.id)
+        if gid_str not in server_config:
+            server_config[gid_str] = {}
+        if "trusted_users" not in server_config[gid_str]:
+            server_config[gid_str]["trusted_users"] = []
+
+        trusted_pool = server_config[gid_str]["trusted_users"]
+        input_clean = user_input.strip().lower()
+
+        # --- ROUTE 1: CLEAR ALL TRUSTED USERS FOR THIS SERVER ---
+        if input_clean == "all" or (action and action.strip().lower() == "all"):
+            if not trusted_pool:
+                return await ctx.send("ℹ️ There are no whitelisted users configured on this server to remove.")
+            
+            server_config[gid_str]["trusted_users"] = []
+            save_json(CONFIG_FILE, server_config)
+            return await ctx.send("🗑️ Successfully **removed all** users from this server's whitelist configuration.")
+
+        # --- EXTRACT USER ID FROM MENTION OR RAW STRING ---
+        target_uid = user_input.replace("<@", "").replace("!", "").replace(">", "").strip()
+        if not target_uid.isdigit():
+            return await ctx.send("❌ Please provide a valid user mention or numerical User ID.")
+
+        action_clean = action.lower().strip() if action else None
+
+        # --- ROUTE 2: EXPLICIT REMOVE TARGET ---
+        if action_clean == "remove":
+            if target_uid in trusted_pool:
+                trusted_pool.remove(target_uid)
+                save_json(CONFIG_FILE, server_config)
+                return await ctx.send(f"Successfully removed")
+            else:
+                return await ctx.send(f"Not in the trusted")
+
+        # --- ROUTE 3: TOGGLE AUTOMATION ---
+        if target_uid in trusted_pool:
+            trusted_pool.remove(target_uid)
+            status_msg = f"Successfully removed"
+        else:
+            trusted_pool.append(target_uid)
+            status_msg = f" Successfully added (this server)"
+
+        save_json(CONFIG_FILE, server_config)
+        await ctx.send(status_msg)
+
+
+    # ===================== PREFIX BLACKLIST MANAGEMENT =====================
+    @commands.command(name="adminbl")
+    async def admin_blacklist(self, ctx, server_id: str = None, action: str = None):
+        if self.check_maintenance(ctx):
+            return await ctx.send("🛠️ **Bot is under maintenance.**")
+
+        # STRICT LOCK: Only true hardcoded IDs in ADMIN_IDS can manage blacklists.
+        # Server owners are blocked unless their ID is hardcoded in ADMIN_IDS.
+        if str(ctx.author.id) not in ADMIN_IDS:
+            return await ctx.send("You do not have permission to use this command.")
+
+        if not server_id:
+            return await ctx.send("❌ **Usage:** `.adminbl <serverID/all>` or `.adminbl <serverID> remove`")
+
+        if "blacklisted_servers" not in server_config:
+            server_config["blacklisted_servers"] = []
+
+        blacklist_pool = server_config["blacklisted_servers"]
+        input_clean = server_id.strip().lower()
+
+        # --- ROUTE 1: CLEAR ALL BLACKLISTED SERVERS ---
+        if input_clean == "all" or (action and action.strip().lower() == "all"):
+            if not blacklist_pool:
+                return await ctx.send("ℹ️ The blacklist is already completely empty.")
+            
+            server_config["blacklisted_servers"] = []
+            save_json(CONFIG_FILE, server_config)
+            return await ctx.send("🔓 Successfully **wiped the blacklist**. All servers are now unbanished globally.")
+
+        target_sid = server_id.strip()
+        action_clean = action.lower().strip() if action else None
+
+        # --- ROUTE 2: EXPLICIT REMOVE TARGET ---
+        if action_clean == "remove":
+            if target_sid in blacklist_pool:
+                blacklist_pool.remove(target_sid)
+                save_json(CONFIG_FILE, server_config)
+                return await ctx.send(f"🔓 Server ID `{target_sid}` has been successfully **removed** from the blacklist.")
+            else:
+                return await ctx.send(f"❌ Server ID `{target_sid}` was not found in the blacklist pool.")
+
+        # --- ROUTE 3: TOGGLE AUTOMATION ---
+        if target_sid in blacklist_pool:
+            blacklist_pool.remove(target_sid)
+            status_msg = f"🔓 Server ID `{target_sid}` was already blacklisted. **Removed** from blacklist."
+        else:
+            blacklist_pool.append(target_sid)
+            status_msg = f"🚫 Server ID `{target_sid}` has been **added** to the blacklist."
+
+        save_json(CONFIG_FILE, server_config)
+        await ctx.send(status_msg)
+
+    # pong
+    @commands.command(name="ping")
+    async def ping(self, ctx):
+        #if self.check_maintenance(ctx):
+            #)return await ctx.send("🛠️ **Bot is under maintenance.**")
+
+        #if str(ctx.author.id) not in ADMIN_IDS:
+            #return await ctx.send("You do not have permission to use this command.")
+
+        await ctx.send(f"Pong! {round(self.bot.latency * 1000)}ms")
+
+# ===================== INVITE & SERVER MANAGEMENT SYSTEM =====================
+    @commands.command(name="addinvite")
+    async def add_invite_management(self, ctx, category: str = None, target_id: str = None, action: str = None):
+        if self.check_maintenance(ctx):
+            return await ctx.send("🛠️ **Bot is under maintenance.**")
+
+        if str(ctx.author.id) not in ADMIN_IDS:
+            return await ctx.send("You do not have permission to use this command.")
+
+        if not category or not target_id:
+            return await ctx.send("❌ **Usage:**\n`.addinvite user <userID>`\n`.addinvite user <userID> remove`\n`.addinvite server <serverID>`\n`.addinvite server <serverID> remove`\n`.addinvite cleanall` (wipes users)")
+
+        # Handle wipe quickly
+        if category.lower().strip() == "cleanall":
+            server_config["invited_users"] = []
+            save_json(CONFIG_FILE, server_config)
+            return await ctx.send("🔓 Successfully **wiped the user invite whitelist**.")
+
+        category = category.lower().strip()
+        clean_id = target_id.replace("<@", "").replace("!", "").replace(">", "").strip()
+
+        # --- USER MANAGEMENT ---
+        if category == "user":
+            if "invited_users" not in server_config:
+                server_config["invited_users"] = []
+            
+            pool = server_config["invited_users"]
+            
+            if action and action.lower().strip() == "remove":
+                if clean_id in pool:
+                    pool.remove(clean_id)
+                    save_json(CONFIG_FILE, server_config)
+                    return await ctx.send(f"❌ User ID `{clean_id}` removed from invite whitelist.")
+                return await ctx.send("❌ User not found in whitelist.")
+
+            if clean_id in pool:
+                return await ctx.send("ℹ️ User is already whitelisted.")
+            
+            pool.append(clean_id)
+            save_json(CONFIG_FILE, server_config)
+            return await ctx.send(f"✅ User ID `{clean_id}` added to invite whitelist!")
+
+        # --- SERVER MANAGEMENT ---
+        elif category == "server":
+            if "allowed_servers" not in server_config:
+                server_config["allowed_servers"] = []
+            
+            pool = server_config["allowed_servers"]
+
+            if action and action.lower().strip() == "remove":
+                if clean_id in pool:
+                    pool.remove(clean_id)
+                    save_json(CONFIG_FILE, server_config)
+                    return await ctx.send(f"❌ Server ID `{clean_id}` removed from allowed servers list.")
+                return await ctx.send("❌ Server not found in allowed list.")
+
+            if clean_id in pool:
+                return await ctx.send("ℹ️ Server is already whitelisted.")
+            
+            pool.append(clean_id)
+            save_json(CONFIG_FILE, server_config)
+            return await ctx.send(f"✅ Server ID `{clean_id}` added to allowed servers list!")
+        
+        else:
+            return await ctx.send("❌ Invalid category. Choose `user` or `server`.")
+
+    # ===================== SECURED SLASH INVITE COMMAND =====================
+    @app_commands.command(name="invite", description="Generates a secure link to invite the bot to your server.")
+    async def invite_slash_cmd(self, interaction: discord.Interaction):
+        if self.check_maintenance(interaction):
+            return await interaction.response.send_message("🛠️ **Bot is under maintenance.**", ephemeral=True)
+
+        invited_pool = server_config.get("invited_users", [])
+        user_id_str = str(interaction.user.id)
+
+        # Secure authorization wall check
+        if user_id_str not in invited_pool and user_id_str not in ADMIN_IDS:
+            return await interaction.response.send_message(
+                "❌ You are not authorized to invite this bot. Please contact the administrator.", 
+                ephemeral=True
+            )
+
+        await interaction.response.send_message(
+            "👋 Click the button below to authorize adding the bot into your chosen server:", 
+            view=InviteBotView(),
+            ephemeral=True
+        )
+
+# --- Define the Interactive Button Object Layout ---
+class InviteBotView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        # Optimized layout configuration link to bypass client integrations caches
+        self.add_item(discord.ui.Button(
+            label="Authorize Bot", 
+            url="https://discord.com/api/oauth2/authorize?client_id=1502654737219321926&permissions=6755418768566336&scope=bot",
+            style=discord.ButtonStyle.link
+        ))
 
 async def setup(launch):
     await launch.add_cog(BotCommands(launch))

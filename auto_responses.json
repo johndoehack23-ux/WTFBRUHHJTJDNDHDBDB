@@ -1,37 +1,221 @@
 {
-    "john china": {
-        "trigger": "john china",
-        "response": "John china 99999999999+ aura",
-        "matchmode": "startswith",
-        "react": "😭",
-        "global": false
-    },
-    "gn": {
-        "trigger": "gn",
-        "response": "alright good night",
+    "kira": {
+        "trigger": "kira",
+        "response": "it's me nour I miss you guys but I can't return a lot of things happened that's why I can't return peace",
         "matchmode": "contains",
         "react": null,
-        "global": false
+        "channel": null,
+        "cooldown": 0,
+        "global": false,
+        "guild_id": "1504811324075409619"
     },
-    "<@1268696556740018229>": {
-        "trigger": "<@1268696556740018229>",
-        "response": "LIL BROSKIE ✌️",
-        "matchmode": "contains",
-        "react": "😭",
-        "global": false
-    },
-    "hondacivic": {
-        "trigger": "hondacivic",
-        "response": "top 1 worst guy in the history 🗣️🔥",
-        "matchmode": "contains",
-        "react": "😭",
-        "global": false
-    },
-    "x2": {
-        "trigger": "x2",
-        "response": "test trollollll",
+    "goat": {
+        "trigger": "goat",
+        "response": "<@1469939898130895022> is the goat 🐐🔥",
         "matchmode": "contains",
         "react": null,
-        "global": false
+        "channel": "1481930889691795540",
+        "cooldown": 0,
+        "global": false,
+        "guild_id": "1481930888702070815"
+    },
+    "viper": {
+        "trigger": "viper",
+        "response": "acid body is disgusting",
+        "matchmode": "contains",
+        "react": null,
+        "channel": null,
+        "cooldown": 0,
+        "global": false,
+        "guild_id": "1481930888702070815"
+    },
+    "pika": {
+        "trigger": "pika",
+        "response": "pikachu <:neko_heart:1474778961371467806>",
+        "matchmode": "contains",
+        "react": null,
+        "channel": null,
+        "cooldown": 0,
+        "global": false,
+        "guild_id": "1473929399463313480"
+    },
+    "enrique": {
+        "trigger": "enrique",
+        "response": "<@1465295674768883889>",
+        "matchmode": "contains",
+        "react": null,
+        "channel": null,
+        "cooldown": 0,
+        "global": true,
+        "guild_id": "1473929399463313480"
+    },
+    "yummy": {
+        "trigger": "yummy",
+        "response": "yum",
+        "matchmode": "contains",
+        "react": [
+            "😋"
+        ],
+        "channel": null,
+        "cooldown": 0,
+        "global": false,
+        "guild_id": "1473929399463313480"
+    },
+    "nigga": {
+        "trigger": "nigga",
+        "response": "syfm",
+        "matchmode": "contains",
+        "react": [
+            "😭",
+            "🥀"
+        ],
+        "channel": "1503365324475596812",
+        "cooldown": 0,
+        "global": false,
+        "guild_id": "1503365316065890364"
+    },
+    "nigger": {
+        "trigger": "nigger",
+        "response": "your not tuff bro 🥀",
+        "matchmode": "contains",
+        "react": [
+            "💀",
+            "😭",
+            "💔",
+            "🥀"
+        ],
+        "channel": "1503365324475596812",
+        "cooldown": 0,
+        "global": false,
+        "guild_id": "1503365316065890364"
+    },
+    "job": {
+        "trigger": "job",
+        "response": "a job? 💀",
+        "matchmode": "contains",
+        "react": [
+            "😭"
+        ],
+        "channel": null,
+        "cooldown": 0,
+        "global": false,
+        "guild_id": "1503365316065890364"
+    },
+    "@everyone": {
+        "trigger": "@everyone",
+        "response": "sonion 😭🙏",
+        "matchmode": "contains",
+        "react": [
+            "💀",
+            "😭",
+            "💔",
+            "🥀"
+        ],
+        "channel": null,
+        "cooldown": 0,
+        "global": false,
+        "guild_id": "1503365316065890364"
+    },
+    "500 ciggrates": {
+        "trigger": "500 ciggrates",
+        "response": "<:sonbreath:1474778593497317488> <:sobbingpray:1491457250777108571>",
+        "matchmode": "contains",
+        "react": null,
+        "channel": null,
+        "cooldown": 0,
+        "global": false,
+        "guild_id": "1473929399463313480"
+    },
+    "sharvil": {
+        "trigger": "sharvil",
+        "response": "<:nekosip:1510159785218019418>",
+        "matchmode": "contains",
+        "react": null,
+        "channel": null,
+        "cooldown": 0,
+        "global": false,
+        "guild_id": "1473929399463313480"
+    },
+    "whitebird": {
+        "trigger": "whitebird",
+        "response": "ping <@1465295674768883889> instead",
+        "matchmode": "contains",
+        "react": null,
+        "channel": null,
+        "cooldown": 0,
+        "global": false,
+        "guild_id": "1473929399463313480"
+    },
+    "sonion": {
+        "trigger": "sonion",
+        "response": "https://tenor.com/view/sonion-gif-4370030053602687111",
+        "matchmode": "contains",
+        "react": null,
+        "channel": null,
+        "cooldown": 0,
+        "global": true,
+        "guild_id": "1473929399463313480"
+    },
+    "<@1489696905704378390>": {
+        "trigger": "<@1489696905704378390>",
+        "response": "too much light 🚨",
+        "matchmode": "contains",
+        "react": null,
+        "channel": null,
+        "cooldown": 0,
+        "global": false,
+        "guild_id": "1497838451624509542"
+    },
+    "happy": {
+        "trigger": "happy",
+        "response": "happy: HIIII",
+        "matchmode": "contains",
+        "react": null,
+        "channel": null,
+        "cooldown": 0,
+        "global": false,
+        "guild_id": "1505596366557020200"
+    },
+    "iamcontrol": {
+        "trigger": "iamcontrol",
+        "response": "the hidden hacker who got exposed in the tournament 💔",
+        "matchmode": "contains",
+        "react": [
+            "🥀"
+        ],
+        "channel": null,
+        "cooldown": 0,
+        "global": false,
+        "guild_id": "1505596366557020200"
+    },
+    "solanum": {
+        "trigger": "solanum",
+        "response": "the goat kpop daddy of the server",
+        "matchmode": "contains",
+        "react": null,
+        "channel": null,
+        "cooldown": 0,
+        "global": false,
+        "guild_id": "1505596366557020200"
+    },
+    "sola": {
+        "trigger": "sola",
+        "response": "the goat kpop daddy of the server",
+        "matchmode": "contains",
+        "react": null,
+        "channel": null,
+        "cooldown": 0,
+        "global": false,
+        "guild_id": "1505596366557020200"
+    },
+    "<@1502654737219321926>": {
+        "trigger": "<@1502654737219321926>",
+        "response": "yoo",
+        "matchmode": "contains",
+        "react": null,
+        "channel": null,
+        "cooldown": 0,
+        "global": false,
+        "guild_id": "1473929399463313480"
     }
 }
