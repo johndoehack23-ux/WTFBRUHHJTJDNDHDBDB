@@ -8,6 +8,9 @@ from threading import Thread
 import time
 import requests
 import logging
+import json
+import pytz
+from datetime import datetime
 
 # ===================== SELF-PING SERVER =====================
 app = Flask('')
@@ -30,11 +33,20 @@ def start_keep_alive():
     def run_server():
         app.run(host='0.0.0.0', port=5000, use_reloader=False)
 
+    def get_now_str():
+        try:
+            with open("timezone_config.json", "r") as f:
+                tz_name = json.load(f).get("timezone", "America/Los_Angeles")
+            tz = pytz.timezone(tz_name)
+        except Exception:
+            tz = pytz.timezone("America/Los_Angeles")
+        return datetime.now(tz).strftime("%-I:%M %p")
+
     def ping_loop():
         time.sleep(10)  # Let Flask fully start before first ping
         last_time = None
         while True:
-            now = time.strftime("%-I:%M %p")
+            now = get_now_str()
             try:
                 requests.get("http://127.0.0.1:5000/", timeout=5)
                 if last_time:
