@@ -32,12 +32,18 @@ def start_keep_alive():
 
     def ping_loop():
         time.sleep(10)  # Let Flask fully start before first ping
+        last_time = None
         while True:
+            now = time.strftime("%-I:%M %p")
             try:
                 requests.get("http://127.0.0.1:5000/", timeout=5)
-                print("🟢 Self-ping OK")
+                if last_time:
+                    print(f"🟢 Self-ping OK | {last_time} → {now}")
+                else:
+                    print(f"🟢 Self-ping OK | {now}")
             except Exception as e:
                 print(f"⚠️ Self-ping missed: {e}")
+            last_time = now
             time.sleep(290)
 
     server_thread = Thread(target=run_server, daemon=True)

@@ -217,5 +217,15 @@
         "cooldown": 0,
         "global": false,
         "guild_id": "1473929399463313480"
+    },
+    "pizza": {
+        "trigger": "pizza",
+        "response": "I love 🍕🤤",
+        "matchmode": "contains",
+        "react": null,
+        "channel": null,
+        "cooldown": 0,
+        "global": false,
+        "guild_id": "1452402371471741172"
     }
 }
