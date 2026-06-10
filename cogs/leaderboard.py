@@ -89,20 +89,7 @@ class LeaderboardView(discord.ui.View):
     def update_buttons(self):
         self.clear_items()
 
-        # ── Row 0: < 1 2 3 4 5 ──
-        prev = discord.ui.Button(
-            label="<",
-            style=discord.ButtonStyle.secondary,
-            disabled=(self.current_page == 0 or self.show_all),
-            row=0
-        )
-        async def prev_cb(interaction: discord.Interaction, v=self):
-            v.current_page = max(0, v.current_page - 1)
-            v.update_buttons()
-            await interaction.response.edit_message(embed=v.build_embed(), view=v)
-        prev.callback = prev_cb
-        self.add_item(prev)
-
+        # ── Row 0: 1 2 3 4 5 (max 5 per row) ──
         for p in range(1, 6):
             is_cur = (not self.show_all and self.current_page == p - 1)
             b = discord.ui.Button(
@@ -119,7 +106,7 @@ class LeaderboardView(discord.ui.View):
             b.callback = _pcb
             self.add_item(b)
 
-        # ── Row 1: 6 7 8 9 10 > ──
+        # ── Row 1: 6 7 8 9 10 ──
         for p in range(6, 11):
             is_cur = (not self.show_all and self.current_page == p - 1)
             b = discord.ui.Button(
@@ -136,11 +123,25 @@ class LeaderboardView(discord.ui.View):
             b.callback = _pcb2
             self.add_item(b)
 
+        # ── Row 2: < > Infinite Enter Page ──
+        prev = discord.ui.Button(
+            label="<",
+            style=discord.ButtonStyle.secondary,
+            disabled=(self.current_page == 0 or self.show_all),
+            row=2
+        )
+        async def prev_cb(interaction: discord.Interaction, v=self):
+            v.current_page = max(0, v.current_page - 1)
+            v.update_buttons()
+            await interaction.response.edit_message(embed=v.build_embed(), view=v)
+        prev.callback = prev_cb
+        self.add_item(prev)
+
         nxt = discord.ui.Button(
             label=">",
             style=discord.ButtonStyle.secondary,
             disabled=(self.current_page >= self.total_pages - 1 or self.show_all),
-            row=1
+            row=2
         )
         async def next_cb(interaction: discord.Interaction, v=self):
             v.current_page = min(v.total_pages - 1, v.current_page + 1)
@@ -149,7 +150,6 @@ class LeaderboardView(discord.ui.View):
         nxt.callback = next_cb
         self.add_item(nxt)
 
-        # ── Row 2: Infinite | Enter Page ──
         inf = discord.ui.Button(
             label="Paginated" if self.show_all else "Infinite",
             style=discord.ButtonStyle.success if self.show_all else discord.ButtonStyle.secondary,
