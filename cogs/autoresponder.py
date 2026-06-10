@@ -164,5 +164,25 @@ class AutoresponderCog(commands.Cog):
                 return await interaction.response.send_message(f"🗑️ Local Autoresponder `{trigger}` successfully removed.", ephemeral=True)
 
 
+    @commands.command(name="showresponders")
+    async def showresponders(self, ctx):
+        data = get_all_auto_responses()
+        guild_id = str(ctx.guild.id)
+
+        names = [
+            t for t, d in data.items()
+            if d.get("global") or str(d.get("guild_id", "")) == guild_id
+        ]
+
+        embed = discord.Embed(title="**Responders**", color=0x2f3136)
+
+        if not names:
+            embed.description = "No autoresponders set for this server."
+        else:
+            embed.description = "\n".join(f"`{name}`" for name in names)
+
+        await ctx.send(embed=embed)
+
+
 async def setup(bot):
     await bot.add_cog(AutoresponderCog(bot))
