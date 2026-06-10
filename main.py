@@ -68,11 +68,20 @@ def start_keep_alive():
 TOKEN = os.getenv("token")
 MAINTENANCE_MODE = False
 
+STATS_FILE = "stats.json"
+
+def get_prefix(bot, message):
+    try:
+        with open(STATS_FILE, "r") as f:
+            return json.load(f).get("prefix", ".")
+    except Exception:
+        return "."
+
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 
-bot = commands.Bot(command_prefix=".", intents=intents, help_command=None)
+bot = commands.Bot(command_prefix=get_prefix, intents=intents, help_command=None)
 
 server_config = load_json(CONFIG_FILE, dict)
 if "invited_users" not in server_config:
@@ -93,15 +102,19 @@ async def on_ready():
     MAINTENANCE_MODE = m_data.get("enabled", False)
     print(f"✅ Logged in as {bot.user}")
 
-    # Print timezone guide so you know what to put in stats.json
+    # Print stats.json guide so you know what to put in stats.json
     try:
         with open("stats.json", "r") as f:
-            current_tz = json.load(f).get("timezone", "America/Los_Angeles")
+            stats = json.load(f)
+        current_tz = stats.get("timezone", "America/Los_Angeles")
+        current_prefix = stats.get("prefix", ".")
     except Exception:
         current_tz = "America/Los_Angeles"
+        current_prefix = "."
     print("━" * 48)
-    print("  📋 TIMEZONE GUIDE — edit stats.json to change")
-    print(f"  Current: \"{current_tz}\"")
+    print("  📋 STATS.JSON GUIDE — edit to configure bot")
+    print(f"  Prefix:   \"{current_prefix}\"  (use .prefix set <x> to change)")
+    print(f"  Timezone: \"{current_tz}\"")
     print("━" * 48)
     print("  PST / PDT  →  America/Los_Angeles  (default)")
     print("  EST / EDT  →  America/New_York")
@@ -144,6 +157,7 @@ async def setup_hook():
         "cogs.say",
         "cogs.invite",
         "cogs.ping",
+        "cogs.prefix",
     ]
     for cog in cogs:
         await bot.load_extension(cog)
@@ -182,6 +196,17 @@ async def global_prefix_blacklist_check(ctx: commands.Context):
 @bot.event
 async def on_message(message):
     if message.author.bot:
+        return
+
+    # Reply with prefix when bot is mentioned alone
+    import re
+    if re.fullmatch(r'<@!?' + str(bot.user.id) + r'>', message.content.strip()):
+        try:
+            with open(STATS_FILE, "r") as f:
+                prefix = json.load(f).get("prefix", ".")
+        except Exception:
+            prefix = "."
+        await message.channel.send(f"My prefix is: `{prefix}`")
         return
 
     if is_maintenance_mode() and not is_admin(message.author.id):
