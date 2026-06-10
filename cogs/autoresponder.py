@@ -165,21 +165,31 @@ class AutoresponderCog(commands.Cog):
 
 
     @commands.command(name="showresponders")
-    async def showresponders(self, ctx):
+    async def showresponders(self, ctx, scope: str = "server"):
         data = get_all_auto_responses()
         guild_id = str(ctx.guild.id)
+        scope = scope.lower().strip()
 
-        names = [
-            t for t, d in data.items()
-            if d.get("global") or str(d.get("guild_id", "")) == guild_id
-        ]
+        if scope not in ("global", "server"):
+            return await ctx.send("❌ Usage: `+showresponders global` or `+showresponders server` (default: server)")
+
+        if scope == "global":
+            names = list(data.keys())
+            label = "Global"
+        else:
+            names = [
+                t for t, d in data.items()
+                if d.get("global") or str(d.get("guild_id", "")) == guild_id
+            ]
+            label = "Server"
 
         embed = discord.Embed(title="**Responders**", color=0x2f3136)
+        embed.set_footer(text=f"Scope: {label}")
 
         if not names:
-            embed.description = "No autoresponders set for this server."
+            embed.description = "No autoresponders found."
         else:
-            embed.description = "\n".join(f"`{name}`" for name in names)
+            embed.description = "\n".join(names)
 
         await ctx.send(embed=embed)
 
