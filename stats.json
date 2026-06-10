@@ -1,5 +1,7 @@
 {
     "timezone": "Asia/Manila",
-    "prefix": ".",
-    "server_prefixes": {}
+    "prefix": "+",
+    "server_prefixes": {
+        "1481930888702070815": "+"
+    }
 }

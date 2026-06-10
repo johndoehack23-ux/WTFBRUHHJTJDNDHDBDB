@@ -94,11 +94,20 @@ if "invited_users" not in server_config:
 
 @bot.event
 async def on_guild_join(guild: discord.Guild):
-    if "allowed_servers" not in server_config:
-        server_config["allowed_servers"] = []
-    if str(guild.id) not in server_config["allowed_servers"]:
-        print(f"⚠️ Bot joined unauthorized server: {guild.name} ({guild.id}). Leaving.")
-        await guild.leave()
+    # Always read fresh from disk — in-memory cache may be stale
+    try:
+        with open(CONFIG_FILE, "r") as f:
+            fresh_config = json.load(f)
+    except Exception:
+        fresh_config = {}
+    allowed = fresh_config.get("allowed_servers", [])
+    if str(guild.id) not in allowed:
+        print(f"⛔ Rejected unauthorized server: {guild.name} ({guild.id}). Forcing leave.")
+        try:
+            await guild.leave()
+            print(f"✅ Successfully left: {guild.name} ({guild.id})")
+        except Exception as e:
+            print(f"❌ Failed to leave {guild.name} ({guild.id}): {e}")
 
 @bot.event
 async def on_ready():
@@ -137,12 +146,21 @@ async def on_ready():
     print("  AEST       →  Australia/Sydney")
     print("━" * 48)
 
-    # Sweep all servers — silently leave any that aren't whitelisted
-    allowed = server_config.get("allowed_servers", [])
+    # Sweep all servers — always read fresh from disk
+    try:
+        with open(CONFIG_FILE, "r") as f:
+            fresh_config = json.load(f)
+    except Exception:
+        fresh_config = {}
+    allowed = fresh_config.get("allowed_servers", [])
     for guild in list(bot.guilds):
         if str(guild.id) not in allowed:
-            print(f"⚠️ Leaving unauthorized server: {guild.name} ({guild.id})")
-            await guild.leave()
+            print(f"⛔ Startup sweep — unauthorized: {guild.name} ({guild.id}). Forcing leave.")
+            try:
+                await guild.leave()
+                print(f"✅ Successfully left: {guild.name} ({guild.id})")
+            except Exception as e:
+                print(f"❌ Failed to leave {guild.name} ({guild.id}): {e}")
 
     start_keep_alive()  # Start self-ping AFTER bot is online
 
