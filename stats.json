@@ -1,4 +1,5 @@
 {
     "timezone": "Asia/Manila",
-    "prefix": "."
+    "prefix": ".",
+    "server_prefixes": {}
 }

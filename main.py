@@ -73,7 +73,12 @@ STATS_FILE = "stats.json"
 def get_prefix(bot, message):
     try:
         with open(STATS_FILE, "r") as f:
-            return json.load(f).get("prefix", ".")
+            data = json.load(f)
+        if message.guild:
+            server_prefix = data.get("server_prefixes", {}).get(str(message.guild.id))
+            if server_prefix:
+                return server_prefix
+        return data.get("prefix", ".")
     except Exception:
         return "."
 
