@@ -46,16 +46,11 @@ class LeaderboardView(discord.ui.View):
         self.update_buttons()
 
     def build_embed(self):
-        if self.show_all:
-            page_entries = self.entries
-            page_label = "All"
-            start_rank = 0
-        else:
-            start = self.current_page * ENTRIES_PER_PAGE
-            end = start + ENTRIES_PER_PAGE
-            page_entries = self.entries[start:end]
-            page_label = f"Page {self.current_page + 1}/{self.total_pages}"
-            start_rank = self.current_page * ENTRIES_PER_PAGE
+        start = self.current_page * ENTRIES_PER_PAGE
+        end = start + ENTRIES_PER_PAGE
+        page_entries = self.entries[start:end]
+        page_label = f"Page {self.current_page + 1}/{self.total_pages}"
+        start_rank = self.current_page * ENTRIES_PER_PAGE
 
         if self.mode == "global":
             title = f"🏆 Global Leaderboard — {page_label}"
@@ -123,11 +118,11 @@ class LeaderboardView(discord.ui.View):
             b.callback = _pcb2
             self.add_item(b)
 
-        # ── Row 2: < > Infinite Enter Page ──
+        # ── Row 2: < > Enter Page ──
         prev = discord.ui.Button(
             label="<",
             style=discord.ButtonStyle.secondary,
-            disabled=(self.current_page == 0 or self.show_all),
+            disabled=(self.current_page == 0),
             row=2
         )
         async def prev_cb(interaction: discord.Interaction, v=self):
@@ -140,7 +135,7 @@ class LeaderboardView(discord.ui.View):
         nxt = discord.ui.Button(
             label=">",
             style=discord.ButtonStyle.secondary,
-            disabled=(self.current_page >= self.total_pages - 1 or self.show_all),
+            disabled=(self.current_page >= self.total_pages - 1),
             row=2
         )
         async def next_cb(interaction: discord.Interaction, v=self):
@@ -150,22 +145,9 @@ class LeaderboardView(discord.ui.View):
         nxt.callback = next_cb
         self.add_item(nxt)
 
-        inf = discord.ui.Button(
-            label="Paginated" if self.show_all else "Infinite",
-            style=discord.ButtonStyle.success if self.show_all else discord.ButtonStyle.secondary,
-            row=2
-        )
-        async def inf_cb(interaction: discord.Interaction, v=self):
-            v.show_all = not v.show_all
-            v.update_buttons()
-            await interaction.response.edit_message(embed=v.build_embed(), view=v)
-        inf.callback = inf_cb
-        self.add_item(inf)
-
         ep = discord.ui.Button(
             label="Enter Page",
             style=discord.ButtonStyle.secondary,
-            disabled=self.show_all,
             row=2
         )
         async def ep_cb(interaction: discord.Interaction, v=self):
@@ -183,19 +165,22 @@ class LeaderboardCog(commands.Cog):
         self.bot = bot
 
     def _build_global_entries(self):
-        entries = []
+        # uid → best entry across all servers (deduplicated)
+        best_per_user = {}
         data = load_json(LEADERBOARD_FILE, lambda: {"servers": {}})
         for gid, users in data.get("servers", {}).items():
             guild = self.bot.get_guild(int(gid))
-            server_name = guild.name if guild else f"Server {gid}"
+            server_name = guild.name if guild else "Unknown Server"
             for uid, d in users.items():
-                entries.append({
-                    "username": d.get("username", "Unknown"),
-                    "best_streak": d.get("best_streak", 0),
-                    "current_streak": d.get("current_streak", 0),
-                    "server_name": server_name
-                })
-        entries.sort(key=lambda x: x["best_streak"], reverse=True)
+                best = d.get("best_streak", 0)
+                if uid not in best_per_user or best > best_per_user[uid]["best_streak"]:
+                    best_per_user[uid] = {
+                        "username": d.get("username", "Unknown"),
+                        "best_streak": best,
+                        "current_streak": d.get("current_streak", 0),
+                        "server_name": server_name
+                    }
+        entries = sorted(best_per_user.values(), key=lambda x: x["best_streak"], reverse=True)
         return entries
 
     def _build_server_entries(self, guild_id):
@@ -215,6 +200,12 @@ class LeaderboardCog(commands.Cog):
     async def lb(self, ctx, scope: str = "global"):
         if is_maintenance_mode() and not is_admin(ctx.author.id):
             return await ctx.send("🛠️ **Bot is under maintenance.**")
+
+        # Only allowed servers can access the leaderboard
+        stats = load_stats()
+        allowed = stats.get("allowed_servers", [])
+        if str(ctx.guild.id) not in allowed:
+            return
 
         scope = scope.lower().strip()
         if scope not in ("global", "server"):
