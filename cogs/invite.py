@@ -34,23 +34,24 @@ class InviteCog(commands.Cog):
             )
 
         if category.lower().strip() == "cleanall":
-            server_config["invited_users"] = []
-            save_json(CONFIG_FILE, server_config)
+            stats = load_stats()
+            stats["invited_users"] = []
+            save_stats(stats)
             return await ctx.send("🔓 Successfully **wiped the user invite whitelist**.")
 
         category = category.lower().strip()
         clean_id = target_id.replace("<@", "").replace("!", "").replace(">", "").strip()
 
         if category == "user":
-            if "invited_users" not in server_config:
-                server_config["invited_users"] = []
-
-            pool = server_config["invited_users"]
+            stats = load_stats()
+            if "invited_users" not in stats:
+                stats["invited_users"] = []
+            pool = stats["invited_users"]
 
             if action and action.lower().strip() == "remove":
                 if clean_id in pool:
                     pool.remove(clean_id)
-                    save_json(CONFIG_FILE, server_config)
+                    save_stats(stats)
                     return await ctx.send(f"❌ User ID `{clean_id}` removed from invite whitelist.")
                 return await ctx.send("❌ User not found in whitelist.")
 
@@ -58,22 +59,25 @@ class InviteCog(commands.Cog):
                 return await ctx.send("ℹ️ User is already whitelisted.")
 
             pool.append(clean_id)
-            save_json(CONFIG_FILE, server_config)
+            save_stats(stats)
             return await ctx.send(f"✅ User ID `{clean_id}` added to invite whitelist!")
 
         elif category == "server":
-            if "allowed_servers" not in server_config:
-                server_config["allowed_servers"] = []
-
-            pool = server_config["allowed_servers"]
+            stats = load_stats()
+            if "allowed_servers" not in stats:
+                stats["allowed_servers"] = []
+            pool = stats["allowed_servers"]
 
             if action and action.lower().strip() == "remove":
                 if clean_id in pool:
                     pool.remove(clean_id)
-                    save_json(CONFIG_FILE, server_config)
+                    save_stats(stats)
                     guild_to_leave = ctx.bot.get_guild(int(clean_id))
                     if guild_to_leave:
-                        await guild_to_leave.leave()
+                        try:
+                            await guild_to_leave.leave()
+                        except Exception:
+                            pass
                     return await ctx.send(f"❌ Server ID `{clean_id}` removed from allowed servers list.")
                 return await ctx.send("❌ Server not found in allowed list.")
 
@@ -81,7 +85,7 @@ class InviteCog(commands.Cog):
                 return await ctx.send("ℹ️ Server is already whitelisted.")
 
             pool.append(clean_id)
-            save_json(CONFIG_FILE, server_config)
+            save_stats(stats)
             return await ctx.send(f"✅ Server ID `{clean_id}` added to allowed servers list!")
 
         else:
@@ -92,7 +96,8 @@ class InviteCog(commands.Cog):
         if is_maintenance_mode() and not is_admin(interaction.user.id):
             return await interaction.response.send_message("🛠️ **Bot is under maintenance.**", ephemeral=True)
 
-        invited_pool = server_config.get("invited_users", [])
+        stats = load_stats()
+        invited_pool = stats.get("invited_users", [])
         user_id_str = str(interaction.user.id)
 
         if user_id_str not in invited_pool and user_id_str not in ADMIN_IDS:

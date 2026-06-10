@@ -96,7 +96,7 @@ if "invited_users" not in server_config:
 async def on_guild_join(guild: discord.Guild):
     # Always read fresh from disk — in-memory cache may be stale
     try:
-        with open(CONFIG_FILE, "r") as f:
+        with open(STATS_FILE, "r") as f:
             fresh_config = json.load(f)
     except Exception:
         fresh_config = {}
@@ -146,9 +146,9 @@ async def on_ready():
     print("  AEST       →  Australia/Sydney")
     print("━" * 48)
 
-    # Sweep all servers — always read fresh from disk
+    # Sweep all servers — always read fresh from stats.json
     try:
-        with open(CONFIG_FILE, "r") as f:
+        with open(STATS_FILE, "r") as f:
             fresh_config = json.load(f)
     except Exception:
         fresh_config = {}

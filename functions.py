@@ -53,6 +53,7 @@ def get_random_word_1v1(guild_id, length: int = None):
 # File Paths
 MAINTENANCE_FILE = "maintenance_mode.json"
 CONFIG_FILE = "server_config.json"
+STATS_FILE = "stats.json"
 LEADERBOARD_FILE = "wordle_leaderboard.json"
 CATEGORIES_FILE = "categories.json"
 ROLES_FILE = "roles.json"
@@ -66,6 +67,17 @@ ADMIN_IDS = {"1465295674768883889", "1275741025905803275", "1464480027558281371"
 # The core dictionary shared across the entire bot
 active_games = {}
 
+
+def load_stats():
+    try:
+        with open(STATS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def save_stats(data):
+    with open(STATS_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
 
 def load_json(filename, default_factory):
     if not os.path.exists(filename):
@@ -127,44 +139,43 @@ def is_admin(user_id, guild=None, check_global=False):
     # Local Trusted Server Users Check
     if guild and not check_global:
         gid_str = str(guild.id)
-        trusted_list = server_config.get(gid_str, {}).get("trusted_users", [])
+        stats = load_stats()
+        trusted_list = stats.get("trusted_users", {}).get(gid_str, [])
         if uid_str in trusted_list:
             return True
 
     return False
 
 def remove_from_whitelist(guild_id: int, user_id: int):
-    """Explicitly removes a trusted user from a specific server's config block"""
+    """Explicitly removes a trusted user from stats.json trusted_users"""
     gid_str = str(guild_id)
     uid_str = str(user_id)
-    
-    if gid_str in server_config and "trusted_users" in server_config[gid_str]:
-        if uid_str in server_config[gid_str]["trusted_users"]:
-            server_config[gid_str]["trusted_users"].remove(uid_str)
-            save_json(CONFIG_FILE, server_config) # Persistent save to server_config.json
-            return True
+    stats = load_stats()
+    trusted = stats.get("trusted_users", {})
+    if gid_str in trusted and uid_str in trusted[gid_str]:
+        trusted[gid_str].remove(uid_str)
+        stats["trusted_users"] = trusted
+        save_stats(stats)
+        return True
     return False
 
 def toggle_whitelist(guild_id: int, user_id: int):
-    """Toggles a user's trusted status: adds them if missing, removes them if present"""
+    """Toggles a user's trusted status in stats.json"""
     gid_str = str(guild_id)
     uid_str = str(user_id)
-    
-    if gid_str not in server_config:
-        server_config[gid_str] = {}
-        
-    if "trusted_users" not in server_config[gid_str]:
-        server_config[gid_str]["trusted_users"] = []
-        
-    trusted_list = server_config[gid_str]["trusted_users"]
-    
+    stats = load_stats()
+    if "trusted_users" not in stats:
+        stats["trusted_users"] = {}
+    if gid_str not in stats["trusted_users"]:
+        stats["trusted_users"][gid_str] = []
+    trusted_list = stats["trusted_users"][gid_str]
     if uid_str in trusted_list:
         trusted_list.remove(uid_str)
-        save_json(CONFIG_FILE, server_config)
+        save_stats(stats)
         return "removed"
     else:
         trusted_list.append(uid_str)
-        save_json(CONFIG_FILE, server_config)
+        save_stats(stats)
         return "added"
 
 # The logic that makes the categories work

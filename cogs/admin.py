@@ -86,19 +86,20 @@ class AdminCog(commands.Cog):
             return await ctx.send("trusted <@user/userID/all>\ntrusted <@user/userID> remove")
 
         gid_str = str(ctx.guild.id)
-        if gid_str not in server_config:
-            server_config[gid_str] = {}
-        if "trusted_users" not in server_config[gid_str]:
-            server_config[gid_str]["trusted_users"] = []
+        stats = load_stats()
+        if "trusted_users" not in stats:
+            stats["trusted_users"] = {}
+        if gid_str not in stats["trusted_users"]:
+            stats["trusted_users"][gid_str] = []
 
-        trusted_pool = server_config[gid_str]["trusted_users"]
+        trusted_pool = stats["trusted_users"][gid_str]
         input_clean = user_input.strip().lower()
 
         if input_clean == "all" or (action and action.strip().lower() == "all"):
             if not trusted_pool:
                 return await ctx.send("ℹ️ There are no whitelisted users configured on this server to remove.")
-            server_config[gid_str]["trusted_users"] = []
-            save_json(CONFIG_FILE, server_config)
+            stats["trusted_users"][gid_str] = []
+            save_stats(stats)
             return await ctx.send("🗑️ Successfully **removed all** users from this server's whitelist configuration.")
 
         target_uid = user_input.replace("<@", "").replace("!", "").replace(">", "").strip()
@@ -110,7 +111,7 @@ class AdminCog(commands.Cog):
         if action_clean == "remove":
             if target_uid in trusted_pool:
                 trusted_pool.remove(target_uid)
-                save_json(CONFIG_FILE, server_config)
+                save_stats(stats)
                 return await ctx.send("Successfully removed")
             else:
                 return await ctx.send("Not in the trusted list")
@@ -122,7 +123,7 @@ class AdminCog(commands.Cog):
             trusted_pool.append(target_uid)
             status_msg = "Successfully added (this server)"
 
-        save_json(CONFIG_FILE, server_config)
+        save_stats(stats)
         await ctx.send(status_msg)
 
     @commands.command(name="adminbl")
