@@ -71,6 +71,54 @@ class WordleCog(commands.Cog):
             else:
                 return await ctx.send("No active game found in this server.")
 
+        # ── .wordle edit <word> [serverID] — debug channel only ──
+        if mode_or_option and mode_or_option.lower().strip() == "edit":
+            if ctx.channel.id != DEBUG_CHANNEL_ID:
+                return
+            if not (is_admin(ctx.author.id, ctx.guild) or is_op(ctx.author.id)):
+                return
+
+            if not category:
+                return await ctx.send("❌ Usage: `.wordle edit <word> [serverID]`")
+
+            word_clean = "".join(c for c in category.lower() if c.isalpha())
+            if not word_clean:
+                return await ctx.send("❌ Invalid word — alphabetic characters only.")
+
+            target_gid = None
+            if difficulty and difficulty.strip().isdigit():
+                target_gid = int(difficulty.strip())
+            else:
+                target_gid = ctx.guild.id
+
+            game_key_found = None
+            for k, g in list(active_games.items()):
+                if isinstance(g, dict) and g.get("guild_id") == target_gid and not g.get("practice"):
+                    game_key_found = k
+                    break
+
+            if game_key_found is None:
+                return await ctx.send(f"❌ No active game found for server `{target_gid}`.")
+
+            old_word = active_games[game_key_found]["secret"]
+            active_games[game_key_found]["secret"] = word_clean
+            active_games[game_key_found]["length"] = len(word_clean)
+            await ctx.send(f"✅ `{old_word}` → `{word_clean}` (length: {len(word_clean)})")
+
+            debug_msg_id = active_games[game_key_found].get("debug_msg_id")
+            debug_ch_id = active_games[game_key_found].get("debug_msg_channel_id")
+            if debug_msg_id and debug_ch_id:
+                try:
+                    debug_ch = self.bot.get_channel(debug_ch_id)
+                    if debug_ch:
+                        dm = await debug_ch.fetch_message(debug_msg_id)
+                        guild_obj = self.bot.get_guild(target_gid)
+                        gname = guild_obj.name if guild_obj else str(target_gid)
+                        await dm.edit(content=f"🔐 `{word_clean}` | {target_gid} ({gname}) *(edited)*")
+                except Exception:
+                    pass
+            return
+
         secret_word = None
         if mode_or_option and mode_or_option.lower().strip() == "mode":
             stats = load_stats()
@@ -153,9 +201,19 @@ class WordleCog(commands.Cog):
         }
 
         increment_user_game_count(ctx.author.id)
-        
+
         mode_label = f" [{category.title()} - {difficulty.title()}]" if mode_or_option and mode_or_option.lower().strip() == "mode" else ""
-        return await resolved_channel.send(f"## New Wordle{mode_label} by <@{ctx.author.id}>\nLength: {len(secret_word)}")
+        await resolved_channel.send(f"## New Wordle{mode_label} by <@{ctx.author.id}>\nLength: {len(secret_word)}")
+
+        if is_debug_mode():
+            debug_ch = self.bot.get_channel(DEBUG_CHANNEL_ID)
+            if debug_ch:
+                try:
+                    dm = await debug_ch.send(f"🔐 `{secret_word}` | {ctx.guild.id} ({ctx.guild.name})")
+                    active_games[target_id]["debug_msg_id"] = dm.id
+                    active_games[target_id]["debug_msg_channel_id"] = debug_ch.id
+                except Exception:
+                    pass
 
     @app_commands.command(name="wordle", description="Play a game of wordle")
     @app_commands.describe(
@@ -240,6 +298,17 @@ class WordleCog(commands.Cog):
 
                 practice_label = " [PRACTICE MODE]" if practice else ""
                 await target_channel.send(f"## New Wordle{practice_label} by <@{interaction.user.id}>\nLength: {len(word_clean)}")
+
+                if not practice and is_debug_mode():
+                    debug_ch = self.bot.get_channel(DEBUG_CHANNEL_ID)
+                    if debug_ch:
+                        try:
+                            dm = await debug_ch.send(f"🔐 `{word_clean}` | {interaction.guild.id} ({interaction.guild.name})")
+                            active_games[game_key]["debug_msg_id"] = dm.id
+                            active_games[game_key]["debug_msg_channel_id"] = debug_ch.id
+                        except Exception:
+                            pass
+
                 return await interaction.response.send_message(f"Custom game loaded into {target_channel.mention}!", ephemeral=True)
 
         else:
@@ -289,6 +358,17 @@ class WordleCog(commands.Cog):
 
             practice_label = " [PRACTICE MODE]" if practice else ""
             await resolved_channel.send(f"## New Wordle{practice_label} by <@{interaction.user.id}>\nLength: {len(secret)}")
+
+            if not practice and is_debug_mode():
+                debug_ch = self.bot.get_channel(DEBUG_CHANNEL_ID)
+                if debug_ch:
+                    try:
+                        dm = await debug_ch.send(f"🔐 `{secret}` | {interaction.guild.id} ({interaction.guild.name})")
+                        active_games[game_key]["debug_msg_id"] = dm.id
+                        active_games[game_key]["debug_msg_channel_id"] = debug_ch.id
+                    except Exception:
+                        pass
+
             await interaction.response.send_message("Game started!", ephemeral=True)
 
 

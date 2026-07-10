@@ -374,6 +374,19 @@ async def on_message(message):
 
                 if content == secret:
                     game["processing_win"] = True
+
+                    # Delete debug channel secret message on solve
+                    debug_msg_id = game.get("debug_msg_id")
+                    debug_ch_id = game.get("debug_msg_channel_id")
+                    if debug_msg_id and debug_ch_id:
+                        try:
+                            debug_ch = bot.get_channel(debug_ch_id)
+                            if debug_ch:
+                                dm = await debug_ch.fetch_message(debug_msg_id)
+                                await dm.delete()
+                        except Exception:
+                            pass
+
                     del active_games[game_key]
 
                     if not is_practice:

@@ -122,7 +122,6 @@ class PageModal(discord.ui.Modal, title="Go to Page"):
                 f"❌ Page must be between 1 and {self.lb_view.total_pages}.", ephemeral=True
             )
         self.lb_view.current_page = page
-        self.lb_view.show_all = False
         self.lb_view.update_buttons()
         await interaction.response.edit_message(embed=self.lb_view.build_embed(), view=self.lb_view)
 
@@ -134,7 +133,6 @@ class LeaderboardView(discord.ui.View):
         self.mode = mode
         self.guild_name = guild_name
         self.current_page = 0
-        self.show_all = False
         self.total_pages = max(1, math.ceil(len(entries) / ENTRIES_PER_PAGE))
         self.update_buttons()
 
@@ -199,46 +197,41 @@ class LeaderboardView(discord.ui.View):
     def update_buttons(self):
         self.clear_items()
 
-        # ── Row 0: 1 2 3 4 5 (max 5 per row) ──
+        # ── Row 0: direct page buttons 1-5 ──
         for p in range(1, 6):
-            is_cur = (not self.show_all and self.current_page == p - 1)
+            is_cur = (self.current_page == p - 1)
             b = discord.ui.Button(
                 label=str(p),
                 style=discord.ButtonStyle.primary if is_cur else discord.ButtonStyle.secondary,
-                disabled=(p > self.total_pages or self.show_all),
+                disabled=(p > self.total_pages),
                 row=0
             )
             async def _pcb(interaction: discord.Interaction, pg=p - 1, v=self):
                 v.current_page = pg
-                v.show_all = False
                 v.update_buttons()
                 await interaction.response.edit_message(embed=v.build_embed(), view=v)
             b.callback = _pcb
             self.add_item(b)
 
-        # ── Row 1: 6 7 8 9 10 ──
-        for p in range(6, 11):
-            is_cur = (not self.show_all and self.current_page == p - 1)
-            b = discord.ui.Button(
-                label=str(p),
-                style=discord.ButtonStyle.primary if is_cur else discord.ButtonStyle.secondary,
-                disabled=(p > self.total_pages or self.show_all),
-                row=1
-            )
-            async def _pcb2(interaction: discord.Interaction, pg=p - 1, v=self):
-                v.current_page = pg
-                v.show_all = False
-                v.update_buttons()
-                await interaction.response.edit_message(embed=v.build_embed(), view=v)
-            b.callback = _pcb2
-            self.add_item(b)
+        # ── Row 1: << < > >> Enter Page ──
+        jump_back = discord.ui.Button(
+            label="<<",
+            style=discord.ButtonStyle.secondary,
+            disabled=(self.current_page < 10),
+            row=1
+        )
+        async def jump_back_cb(interaction: discord.Interaction, v=self):
+            v.current_page = max(0, v.current_page - 10)
+            v.update_buttons()
+            await interaction.response.edit_message(embed=v.build_embed(), view=v)
+        jump_back.callback = jump_back_cb
+        self.add_item(jump_back)
 
-        # ── Row 2: < > Enter Page ──
         prev = discord.ui.Button(
             label="<",
             style=discord.ButtonStyle.secondary,
             disabled=(self.current_page == 0),
-            row=2
+            row=1
         )
         async def prev_cb(interaction: discord.Interaction, v=self):
             v.current_page = max(0, v.current_page - 1)
@@ -251,7 +244,7 @@ class LeaderboardView(discord.ui.View):
             label=">",
             style=discord.ButtonStyle.secondary,
             disabled=(self.current_page >= self.total_pages - 1),
-            row=2
+            row=1
         )
         async def next_cb(interaction: discord.Interaction, v=self):
             v.current_page = min(v.total_pages - 1, v.current_page + 1)
@@ -260,10 +253,23 @@ class LeaderboardView(discord.ui.View):
         nxt.callback = next_cb
         self.add_item(nxt)
 
+        jump_fwd = discord.ui.Button(
+            label=">>",
+            style=discord.ButtonStyle.secondary,
+            disabled=(self.current_page >= self.total_pages - 10),
+            row=1
+        )
+        async def jump_fwd_cb(interaction: discord.Interaction, v=self):
+            v.current_page = min(self.total_pages - 1, v.current_page + 10)
+            v.update_buttons()
+            await interaction.response.edit_message(embed=v.build_embed(), view=v)
+        jump_fwd.callback = jump_fwd_cb
+        self.add_item(jump_fwd)
+
         ep = discord.ui.Button(
             label="Enter Page",
             style=discord.ButtonStyle.secondary,
-            row=2
+            row=1
         )
         async def ep_cb(interaction: discord.Interaction, v=self):
             await interaction.response.send_modal(PageModal(v))
