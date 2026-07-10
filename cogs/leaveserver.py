@@ -105,13 +105,6 @@ class LeaveServerCog(commands.Cog):
         self.bot = bot
         self.MAIN_SERVER_ID = 1503365316065890364
 
-    def _get_invite_url(self):
-        return discord.utils.oauth_url(
-            self.bot.user.id,
-            permissions=discord.Permissions(administrator=True),
-            scopes=("bot", "applications.commands")
-        )
-
     @commands.command(name="leave")
     async def leave_prefix(self, ctx, target: str = None, action: str = None):
         if not is_op(ctx.author.id):
@@ -121,9 +114,7 @@ class LeaveServerCog(commands.Cog):
             return await ctx.send(
                 "❌ Usage:\n"
                 "`.leave <serverID>` — leave a server\n"
-                "`.leave <serverID> undo` — get rejoin link\n"
                 "`.leave all` — leave all servers\n"
-                "`.leave all undo` — get rejoin links for all\n"
                 "`.leave server list` — show leave history"
             )
 
@@ -149,54 +140,6 @@ class LeaveServerCog(commands.Cog):
                 title="🗑️ Leave History",
                 description="\n".join(lines),
                 color=0x2f3136
-            )
-            return await ctx.send(embed=embed)
-
-        # ── .leave all undo ──
-        if target_clean == "all" and action_clean == "undo":
-            data = load_leave_log()
-            entries = data.get("entries", {})
-            if not entries:
-                return await ctx.send("📋 No leave history to undo.")
-
-            invite_url = self._get_invite_url()
-            server_lines = []
-            for sid, info in entries.items():
-                name = info.get("server_name", "Unknown")
-                count = info.get("count", 1)
-                server_lines.append(f"• `{sid}` — {name} (left x{count})")
-
-            embed = discord.Embed(
-                title="🔄 Rejoin All Servers",
-                description=(
-                    "⚠️ Discord bots **cannot auto-rejoin** servers — a server admin must invite the bot back.\n\n"
-                    f"**Servers in leave history:**\n" + "\n".join(server_lines) +
-                    f"\n\n**Bot Invite Link:**\n{invite_url}"
-                ),
-                color=0x57F287
-            )
-            return await ctx.send(embed=embed)
-
-        # ── .leave <serverID> undo ──
-        if target_clean != "all" and action_clean == "undo":
-            if not target_clean.isdigit():
-                return await ctx.send("❌ Invalid server ID.")
-
-            data = load_leave_log()
-            entries = data.get("entries", {})
-            info = entries.get(target_clean, {})
-            server_name = info.get("server_name", "Unknown")
-            count = info.get("count", 1)
-
-            invite_url = self._get_invite_url()
-            embed = discord.Embed(
-                title=f"🔄 Rejoin: {server_name}",
-                description=(
-                    "⚠️ Discord bots **cannot auto-rejoin** servers — a server admin must invite the bot back.\n\n"
-                    f"**Server:** `{target_clean}` — {server_name} (left x{count})\n\n"
-                    f"**Bot Invite Link:**\n{invite_url}"
-                ),
-                color=0x57F287
             )
             return await ctx.send(embed=embed)
 
