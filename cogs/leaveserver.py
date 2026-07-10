@@ -61,6 +61,70 @@ def log_leave(server_id: str, server_name: str):
     return entries[server_id]["code"]
 
 
+LEAVE_LIST_PER_PAGE = 10
+
+
+class LeaveListView(discord.ui.View):
+    def __init__(self, entries_list, author_id):
+        super().__init__(timeout=120)
+        self.entries_list = entries_list
+        self.author_id = author_id
+        self.current_page = 0
+        self.total_pages = max(1, -(-len(entries_list) // LEAVE_LIST_PER_PAGE))
+        self._update_buttons()
+
+    def _build_embed(self):
+        start = self.current_page * LEAVE_LIST_PER_PAGE
+        page_entries = self.entries_list[start:start + LEAVE_LIST_PER_PAGE]
+        lines = []
+        for sid, info in page_entries:
+            code = info.get("code", "?????")
+            name = info.get("server_name", "Unknown")
+            ts = info.get("timestamp", "?")
+            count = info.get("count", 1)
+            lines.append(f"`{code}` | `{sid}`\n> {name} | {ts} | left x{count}")
+        embed = discord.Embed(
+            title=f"🗑️ Leave History — Page {self.current_page + 1}/{self.total_pages}",
+            description="\n\n".join(lines) if lines else "No entries.",
+            color=0x2f3136
+        )
+        embed.set_footer(text=f"Total entries: {len(self.entries_list)}")
+        return embed
+
+    def _update_buttons(self):
+        self.clear_items()
+
+        prev = discord.ui.Button(
+            label="<", style=discord.ButtonStyle.secondary,
+            disabled=(self.current_page == 0), row=0
+        )
+        async def prev_cb(interaction: discord.Interaction, v=self):
+            if interaction.user.id != v.author_id:
+                return await interaction.response.send_message("❌ Not your list.", ephemeral=True)
+            v.current_page = max(0, v.current_page - 1)
+            v._update_buttons()
+            await interaction.response.edit_message(embed=v._build_embed(), view=v)
+        prev.callback = prev_cb
+        self.add_item(prev)
+
+        nxt = discord.ui.Button(
+            label=">", style=discord.ButtonStyle.secondary,
+            disabled=(self.current_page >= self.total_pages - 1), row=0
+        )
+        async def nxt_cb(interaction: discord.Interaction, v=self):
+            if interaction.user.id != v.author_id:
+                return await interaction.response.send_message("❌ Not your list.", ephemeral=True)
+            v.current_page = min(v.total_pages - 1, v.current_page + 1)
+            v._update_buttons()
+            await interaction.response.edit_message(embed=v._build_embed(), view=v)
+        nxt.callback = nxt_cb
+        self.add_item(nxt)
+
+    async def on_timeout(self):
+        for item in self.children:
+            item.disabled = True
+
+
 class LeaveConfirmationView(discord.ui.View):
     def __init__(self, cog, ctx, target_mode, guild_obj=None):
         super().__init__(timeout=60.0)
@@ -128,20 +192,9 @@ class LeaveServerCog(commands.Cog):
             if not entries:
                 return await ctx.send("📋 No leave history found.")
 
-            lines = []
-            for sid, info in entries.items():
-                code = info.get("code", "?????")
-                name = info.get("server_name", "Unknown")
-                ts = info.get("timestamp", "?")
-                count = info.get("count", 1)
-                lines.append(f"`{code}` | `{sid}` ({name}) | {ts} | x{count}")
-
-            embed = discord.Embed(
-                title="🗑️ Leave History",
-                description="\n".join(lines),
-                color=0x2f3136
-            )
-            return await ctx.send(embed=embed)
+            entries_list = list(entries.items())
+            view = LeaveListView(entries_list, ctx.author.id)
+            return await ctx.send(embed=view._build_embed(), view=view)
 
         # ── .leave all ──
         if target_clean == "all":
