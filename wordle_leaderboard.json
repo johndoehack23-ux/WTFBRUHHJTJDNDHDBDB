@@ -1,608 +1,149 @@
 {
     "servers": {
-        "1489324349017296947": {
+        "1512066989953126583": {
             "1465295674768883889": {
-                "username": "0_.a.",
-                "current_streak": 5,
-                "best_streak": 5
+                "username": "iamninjaau",
+                "current_streak": 18,
+                "best_streak": 18
             },
-            "1479435363528212524": {
-                "username": "flamefrags_fan859",
-                "current_streak": 8,
-                "best_streak": 8
-            }
-        },
-        "1481930888702070815": {
-            "1465295674768883889": {
-                "username": "0_.a.",
-                "current_streak": 143,
-                "best_streak": 143
-            },
-            "1469939898130895022": {
-                "username": "spiderprov12",
-                "current_streak": 30,
-                "best_streak": 30
-            },
-            "1168879327576870967": {
-                "username": "butterfly_mono.",
-                "current_streak": 33,
-                "best_streak": 33
-            },
-            "1275741025905803275": {
-                "username": "xkirasus",
-                "current_streak": 61,
-                "best_streak": 61
-            },
-            "1381400178065412177": {
-                "username": "tan_ger_in",
-                "current_streak": 22,
-                "best_streak": 22
+            "1498251023280640020": {
+                "username": "idkwhattoput_fr",
+                "current_streak": 3,
+                "best_streak": 3
             },
             "1400434661938827376": {
                 "username": "thegoutzi",
-                "current_streak": 46,
-                "best_streak": 46
+                "current_streak": 7,
+                "best_streak": 7
+            },
+            "1275741025905803275": {
+                "username": "xkirasus",
+                "current_streak": 1,
+                "best_streak": 1
+            },
+            "1102373584627843113": {
+                "username": "mello_au",
+                "current_streak": 1,
+                "best_streak": 1
+            },
+            "1463140022286024715": {
+                "username": "fozan_7",
+                "current_streak": 1,
+                "best_streak": 1
+            }
+        },
+        "1481930888702070815": {
+            "1420843879351189544": {
+                "username": "trail_blazer1511",
+                "current_streak": 1,
+                "best_streak": 1
+            },
+            "1275741025905803275": {
+                "username": "xkirasus",
+                "current_streak": 13,
+                "best_streak": 13
+            },
+            "1469939898130895022": {
+                "username": "spiderprov12",
+                "current_streak": 7,
+                "best_streak": 7
             },
             "1399684778504228919": {
                 "username": "ghostsootuff",
-                "current_streak": 27,
-                "best_streak": 27
-            },
-            "1164313355738169475": {
-                "username": "_.tsxvs",
-                "current_streak": 21,
-                "best_streak": 21
-            },
-            "1420843879351189544": {
-                "username": "trail_blazer1511",
-                "current_streak": 9,
-                "best_streak": 9
-            },
-            "1499323989926088796": {
-                "username": "kiradarealnigga",
-                "current_streak": 9,
-                "best_streak": 9
-            },
-            "1463818725982732288": {
-                "username": "twisted_hriday",
-                "current_streak": 23,
-                "best_streak": 23
-            },
-            "1432677034240381039": {
-                "username": "bucket07929",
-                "current_streak": 9999,
-                "best_streak": 9
-            },
-            "1278230903063052329": {
-                "username": "slowghost55",
-                "current_streak": 1,
-                "best_streak": 1
-            },
-            "1454215899585445959": {
-                "username": "shiro_white12",
-                "current_streak": 3,
-                "best_streak": 3
-            },
-            "1414809366950969469": {
-                "username": "vexlevii07_",
-                "current_streak": 9,
-                "best_streak": 9
-            },
-            "1502111137766834216": {
-                "username": "standfr",
-                "current_streak": 40,
-                "best_streak": 40
-            },
-            "1503267385619124375": {
-                "username": "syg66.1",
-                "current_streak": 6,
-                "best_streak": 6
-            },
-            "1490087496229589182": {
-                "username": "wildflower9487",
-                "current_streak": 3,
-                "best_streak": 3
-            },
-            "1338218522148606145": {
-                "username": "mirkotir",
-                "current_streak": 2,
-                "best_streak": 2
-            },
-            "1436128502092005459": {
-                "username": "kenze0095",
-                "current_streak": 3,
-                "best_streak": 3
-            },
-            "1494038074265440258": {
-                "username": "cobra31777",
-                "current_streak": 2,
-                "best_streak": 2
-            },
-            "1458062262274363578": {
-                "username": "0ndrxgss.",
-                "current_streak": 1,
-                "best_streak": 1
-            },
-            "1017796780152328203": {
-                "username": "blackwolf1438",
-                "current_streak": 4,
-                "best_streak": 4
-            },
-            "1462021149881012246": {
-                "username": "iamzod_67",
-                "current_streak": 1,
-                "best_streak": 1
-            },
-            "1377272824636375170": {
-                "username": "m1ni._.bo_39815",
-                "current_streak": 4,
-                "best_streak": 4
-            },
-            "1343692602838614069": {
-                "username": "avgrio_41726",
-                "current_streak": 3,
-                "best_streak": 3
-            },
-            "1330590296378970153": {
-                "username": "6426690233",
-                "current_streak": 3,
-                "best_streak": 3
-            },
-            "1480188731326730392": {
-                "username": "visca_barca_088",
-                "current_streak": 1,
-                "best_streak": 1
-            },
-            "1387997042412093563": {
-                "username": "deleted_user_5c5860d812ae66b",
-                "current_streak": 4,
-                "best_streak": 4
-            },
-            "1230001200825372702": {
-                "username": "clown_named_goz.",
-                "current_streak": 6,
-                "best_streak": 6
-            },
-            "1342875465442136244": {
-                "username": "greg_67890",
-                "current_streak": 2,
-                "best_streak": 2
-            },
-            "1492347317041233921": {
-                "username": "viscabarca_0808",
-                "current_streak": 8,
-                "best_streak": 8
-            },
-            "985495398993002507": {
-                "username": "ankylosaurus0581",
-                "current_streak": 2,
-                "best_streak": 2
-            },
-            "521722772028915742": {
-                "username": "oggy_uchiha75",
                 "current_streak": 12,
                 "best_streak": 12
             },
-            "1279622555971620864": {
-                "username": "abi_is_pretteh",
-                "current_streak": 1,
-                "best_streak": 1
-            },
-            "1222570941121564794": {
-                "username": "shy4r_",
-                "current_streak": 1,
-                "best_streak": 1
-            },
-            "1462312359589839104": {
-                "username": "mr.chips77",
-                "current_streak": 1,
-                "best_streak": 1
-            },
-            "1330877185065488434": {
-                "username": "techg121",
-                "current_streak": 1,
-                "best_streak": 1
-            },
-            "1405982225442275509": {
-                "username": "deathgotglitched",
-                "current_streak": 21,
-                "best_streak": 21
-            }
-        },
-        "1470042367036752075": {
-            "880813030886232064": {
-                "username": "ash_24.",
-                "current_streak": 1,
-                "best_streak": 1
-            },
-            "1200502377350975501": {
-                "username": "aburehaan_34851",
-                "current_streak": 1,
-                "best_streak": 1
-            },
-            "1503267385619124375": {
-                "username": "1_.b.",
-                "current_streak": 1,
-                "best_streak": 1
-            }
-        },
-        "1473929399463313480": {
-            "1465295674768883889": {
-                "username": "0_.a.",
-                "current_streak": 5,
-                "best_streak": 5
-            },
-            "1405982225442275509": {
-                "username": "deathgotglitched",
-                "current_streak": 17,
-                "best_streak": 17
-            },
-            "1509966280373829833": {
-                "username": "eldox1._.",
-                "current_streak": 3,
-                "best_streak": 3
-            },
-            "972553239889346651": {
-                "username": "babybuggout_",
-                "current_streak": 0,
-                "best_streak": 0
-            },
-            "1340256119767040081": {
-                "username": "mario_soup",
-                "current_streak": 1,
-                "best_streak": 1
-            },
-            "1496155204196896840": {
-                "username": "sygxnaman",
+            "1199096323182428230": {
+                "username": "aduska_tengi22",
                 "current_streak": 2,
                 "best_streak": 2
             },
-            "1473003498244280552": {
-                "username": "kanko0684",
-                "current_streak": -999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999,
-                "best_streak": 0
+            "1485351766630596789": {
+                "username": "lelouch.d.nour",
+                "current_streak": 5,
+                "best_streak": 5
             },
-            "1436128502092005459": {
-                "username": "kenze0095",
+            "763041127992524822": {
+                "username": "k4opyy",
+                "current_streak": 14,
+                "best_streak": 14
+            },
+            "1492347317041233921": {
+                "username": "viscabarca_0808",
+                "current_streak": 1,
+                "best_streak": 1
+            },
+            "1465295674768883889": {
+                "username": "iamninjaau",
+                "current_streak": 3,
+                "best_streak": 3
+            },
+            "1181986909392748698": {
+                "username": "dr.spy101",
+                "current_streak": 2,
+                "best_streak": 2
+            },
+            "1219926993458565182": {
+                "username": "hearts_4angell",
+                "current_streak": 1,
+                "best_streak": 1
+            },
+            "1463140022286024715": {
+                "username": "fozan_7",
+                "current_streak": 6,
+                "best_streak": 6
+            },
+            "1419273265536569395": {
+                "username": "shadybugxmlb",
+                "current_streak": 1,
+                "best_streak": 1
+            }
+        },
+        "1459809866230140941": {
+            "1498762655920296059": {
+                "username": "mikami_au",
                 "current_streak": 1,
                 "best_streak": 1
             }
         },
         "1503365316065890364": {
-            "1465295674768883889": {
-                "username": "0_.a.",
-                "current_streak": 73,
-                "best_streak": 73
-            },
-            "1503267385619124375": {
-                "username": "1_.b.",
-                "current_streak": 51,
-                "best_streak": 51
-            },
-            "1371804080829370446": {
-                "username": "glitchxsasuke_23890",
-                "current_streak": 57,
-                "best_streak": 57
-            },
-            "1368711105907527690": {
-                "username": "sumrand0m1",
-                "current_streak": 0,
-                "best_streak": 0
-            },
-            "1127426477919568062": {
-                "username": "gamerzblastyt",
-                "current_streak": 1,
-                "best_streak": 1
-            },
-            "1481657005247692842": {
-                "username": "exclusiveego",
-                "current_streak": 5,
-                "best_streak": 5
-            },
-            "1302872510823661570": {
-                "username": "silly_carrot143",
-                "current_streak": 1,
-                "best_streak": 1
-            },
-            "1463140022286024715": {
-                "username": "fozan_7",
-                "current_streak": 8,
-                "best_streak": 8
-            },
-            "1499390987657674892": {
-                "username": "mjmario77",
-                "current_streak": 21,
-                "best_streak": 21
-            },
-            "1179732365954785330": {
-                "username": "unoriginal._.choco17",
-                "current_streak": 5,
-                "best_streak": 5
-            },
-            "1462312359589839104": {
-                "username": "mr.chips77",
-                "current_streak": 1,
-                "best_streak": 1
-            },
-            "1496155204196896840": {
-                "username": "sygxnaman",
-                "current_streak": 11,
-                "best_streak": 11
-            },
-            "1414809366950969469": {
-                "username": "vexlevii07_",
-                "current_streak": 4,
-                "best_streak": 4
-            },
-            "1232695494166184027": {
-                "username": "rizinlol",
-                "current_streak": 4,
-                "best_streak": 4
-            },
-            "1430504909303713793": {
-                "username": "aceyaaaa3",
-                "current_streak": 4,
-                "best_streak": 4
-            },
-            "880813030886232064": {
-                "username": "ash_24.",
-                "current_streak": 10,
-                "best_streak": 10
-            },
-            "1275741025905803275": {
-                "username": "xkirasus",
-                "current_streak": 1,
-                "best_streak": 1
-            },
-            "1476414639314174085": {
-                "username": "iam_kakashi",
-                "current_streak": 2,
-                "best_streak": 2
-            },
-            "1463818725982732288": {
-                "username": "twisted_hriday",
-                "current_streak": 3,
-                "best_streak": 3
-            },
-            "1492347317041233921": {
-                "username": "viscabarca_0808",
-                "current_streak": 3,
-                "best_streak": 3
-            },
-            "1510185939094212729": {
-                "username": "sygalt01",
-                "current_streak": 6,
-                "best_streak": 6
-            },
             "1405982225442275509": {
                 "username": "deathgotglitched",
-                "current_streak": 33,
-                "best_streak": 33
-            },
-            "1436128502092005459": {
-                "username": "kenze0095",
-                "current_streak": 5,
-                "best_streak": 5
+                "current_streak": 9,
+                "best_streak": 9
             },
             "1509966280373829833": {
                 "username": "eldox1._.",
-                "current_streak": 1,
-                "best_streak": 1
-            }
-        },
-        "1485538323249496067": {
-            "1427723939823485059": {
-                "username": "hyeolyeonsa_92090",
-                "current_streak": 2,
-                "best_streak": 2
-            },
-            "1371804080829370446": {
-                "username": "glitchxsasuke_23890",
                 "current_streak": 16,
                 "best_streak": 16
             },
-            "1189111432663531600": {
-                "username": "bytryu",
-                "current_streak": 1,
-                "best_streak": 1
-            }
-        },
-        "1489259552783470693": {
-            "1465295674768883889": {
-                "username": "0_.a.",
+            "1368711105907527690": {
+                "username": "sumrand0m1",
                 "current_streak": 2,
                 "best_streak": 2
+            }
+        },
+        "1473929399463313480": {
+            "1494586518646423654": {
+                "username": "drcoconut23.",
+                "current_streak": 1,
+                "best_streak": 1
             },
-            "1462312359589839104": {
-                "username": "mr.chips77",
+            "1428999218730635345": {
+                "username": "_sussy_king_",
                 "current_streak": 4,
                 "best_streak": 4
             },
-            "1187322537974181989": {
-                "username": "akshara_k07_36399",
-                "current_streak": 1,
-                "best_streak": 1
-            }
-        },
-        "1508806333942730793": {
-            "1465295674768883889": {
-                "username": "0_.a.",
-                "current_streak": 3,
-                "best_streak": 3
-            }
-        },
-        "1504811324075409619": {
-            "1465295674768883889": {
-                "username": "0_.a.",
-                "current_streak": 1,
-                "best_streak": 1
-            },
-            "1485351766630596789": {
-                "username": "noureldeen321",
-                "current_streak": 1,
-                "best_streak": 1
-            }
-        },
-        "1497838451624509542": {
-            "1465295674768883889": {
-                "username": "0_.a.",
-                "current_streak": 21,
-                "best_streak": 21
-            },
-            "1502111137766834216": {
-                "username": "standfr",
-                "current_streak": 3,
-                "best_streak": 3
-            },
-            "1230001200825372702": {
-                "username": "clown_named_goz.",
-                "current_streak": 15,
-                "best_streak": 15
-            },
-            "1324855496225718449": {
-                "username": "evanaftonofficol1",
-                "current_streak": 1,
-                "best_streak": 1
-            },
-            "1463818725982732288": {
-                "username": "twisted_hriday",
-                "current_streak": 6,
-                "best_streak": 6
-            },
-            "1405982225442275509": {
-                "username": "deathgotglitched",
-                "current_streak": 1,
-                "best_streak": 1
-            },
-            "1462021149881012246": {
-                "username": "iamzod_67",
-                "current_streak": 37,
-                "best_streak": 37
-            },
-            "1508156068809674872": {
-                "username": "iamgoatsus2026",
+            "1224193914022658109": {
+                "username": "blackbird_from_shadow",
                 "current_streak": 2,
                 "best_streak": 2
             },
-            "1462312359589839104": {
-                "username": "mr.chips77",
+            "1098156216573771778": {
+                "username": "sharvil_____",
                 "current_streak": 2,
                 "best_streak": 2
-            },
-            "1341386187532795998": {
-                "username": "meowyummy_14",
-                "current_streak": 1,
-                "best_streak": 1
-            },
-            "1429503779220230294": {
-                "username": "fan04924",
-                "current_streak": 2,
-                "best_streak": 2
-            },
-            "1505518624654495765": {
-                "username": "sketchwith_0961",
-                "current_streak": 1,
-                "best_streak": 1
-            }
-        },
-        "1505596366557020200": {
-            "1465295674768883889": {
-                "username": "0_.a.",
-                "current_streak": 7,
-                "best_streak": 7
-            },
-            "767502440021884958": {
-                "username": "hapyq",
-                "current_streak": 1,
-                "best_streak": 1
-            },
-            "1381400178065412177": {
-                "username": "tan_ger_in",
-                "current_streak": 1,
-                "best_streak": 1
-            }
-        },
-        "1434886652953755739": {
-            "1200502377350975501": {
-                "username": "aburehaan_34851",
-                "current_streak": 2,
-                "best_streak": 2
-            },
-            "1465295674768883889": {
-                "username": "0_.a.",
-                "current_streak": 3,
-                "best_streak": 3
-            },
-            "897098552117973052": {
-                "username": "chilled_20",
-                "current_streak": 4,
-                "best_streak": 4
-            },
-            "1463140022286024715": {
-                "username": "fozan_7",
-                "current_streak": 1,
-                "best_streak": 1
-            },
-            "1101142149132722286": {
-                "username": ".fangztv",
-                "current_streak": 3,
-                "best_streak": 3
-            },
-            "1208454080406753342": {
-                "username": "bendytdemon",
-                "current_streak": 1,
-                "best_streak": 1
-            }
-        },
-        "1420830479279722538": {
-            "1275741025905803275": {
-                "username": "xkirasus",
-                "current_streak": 1,
-                "best_streak": 1
-            },
-            "1451633294956302508": {
-                "username": "jaddeluo_17",
-                "current_streak": 1,
-                "best_streak": 1
-            },
-            "1184582726939050025": {
-                "username": "vertex_hub",
-                "current_streak": 3,
-                "best_streak": 3
-            },
-            "1008780851888267354": {
-                "username": "thepotatoboiofficial",
-                "current_streak": 1,
-                "best_streak": 1
-            },
-            "1411717514118824007": {
-                "username": "noobkingaltforgotpassword",
-                "current_streak": 2,
-                "best_streak": 2
-            },
-            "1462857742262730795": {
-                "username": "theprodiscorededguy",
-                "current_streak": 1,
-                "best_streak": 1
-            }
-        },
-        "1452402371471741172": {
-            "1275741025905803275": {
-                "username": "xkirasus",
-                "current_streak": 1,
-                "best_streak": 1
-            },
-            "1465295674768883889": {
-                "username": "0_.a.",
-                "current_streak": 1,
-                "best_streak": 1
-            },
-            "1490877662779146350": {
-                "username": "robyn04444",
-                "current_streak": 1,
-                "best_streak": 1
             }
         }
-    },
-    "global": {}
+    }
 }

@@ -1,6 +1,8 @@
 import os
 import discord
+import asyncio
 from discord.ext import commands
+from discord.ext import tasks
 from functions import *
 
 from flask import Flask
@@ -10,21 +12,58 @@ import requests
 import logging
 import json
 import pytz
-from datetime import datetime
+from datetime import datetime as dt_class # Alias it here
 
-# ===================== SELF-PING SERVER =====================
+def get_bot_time():
+    """Gets the current datetime adjusted to the user's stats.json timezone."""
+    try:
+        with open("stats.json", "r") as f:
+            tz_name = json.load(f).get("timezone", "America/Los_Angeles")
+        tz = pytz.timezone(tz_name)
+    except Exception:
+        tz = pytz.timezone("America/Los_Angeles")
+    return dt_class.now(tz)
+
+def get_local_now():
+    try:
+        with open("stats.json", "r") as f:
+            tz_name = json.load(f).get("timezone", "America/Los_Angeles")
+        btz = pytz.timezone(tz_name)
+    except Exception:
+        btz = pytz.timezone("America/Los_Angeles")
+    
+    # Use the alias
+    return dt_class.now(btz)
+
+# ===================== KEEP-ALIVE + HOST PONG =====================
+_keep_alive_started = False
 app = Flask('')
 log = logging.getLogger('werkzeug')
-log.setLevel(logging.ERROR)  # Silence Flask request noise
+log.setLevel(logging.ERROR)
 
 @app.route('/')
 def home():
     return "Self-pinging engine operational."
 
-_keep_alive_started = False
+HOST_CHANNEL_ID = 1506947901178253424
+
+async def send_to_host_channel(message: str):
+    """Safely send message to host channel"""
+    try:
+        channel = bot.get_channel(HOST_CHANNEL_ID)
+        if not channel:
+            print(f"⚠️ Host channel {HOST_CHANNEL_ID} not found")
+            return
+        if isinstance(channel, (discord.TextChannel, discord.Thread)):
+            await channel.send(message)
+            print(f"📨 Host: {message}")
+        else:
+            print(f"⚠️ Host channel is not text-based ({type(channel).__name__})")
+    except Exception as e:
+        print(f"❌ Failed to send to host channel: {e}")
 
 def start_keep_alive():
-    """Starts Flask + ping loop once, only after the bot is online."""
+    """Starts Flask webserver and initiates the background loop."""
     global _keep_alive_started
     if _keep_alive_started:
         return
@@ -40,29 +79,46 @@ def start_keep_alive():
             tz = pytz.timezone(tz_name)
         except Exception:
             tz = pytz.timezone("America/Los_Angeles")
-        return datetime.now(tz).strftime("%-I:%M %p")
+        return dt_class.now(tz).strftime("%-I:%M %p")
 
-    def ping_loop():
-        time.sleep(10)  # Let Flask fully start before first ping
-        last_time = None
-        while True:
-            now = get_now_str()
+    async def ping_loop():
+        await bot.wait_until_ready()
+        await asyncio.sleep(10)
+        
+        while not bot.is_closed():
+            # A global try-except ensures the loop NEVER dies, no matter what goes wrong
             try:
-                requests.get("http://127.0.0.1:5000/", timeout=5)
-                if last_time:
-                    print(f"🟢 Self-ping OK | {last_time} → {now}")
-                else:
+                now = get_now_str()
+                
+                # 1. Local HTTP Ping (with strict connect & read timeout)
+                try:
+                    # (5, 5) means 5 seconds to connect, 5 seconds to get data. Absolute max 10s.
+                    await bot.loop.run_in_executor(
+                        None, lambda: requests.get("http://127.0.0.1:5000/", timeout=(5, 5))
+                    )
                     print(f"🟢 Self-ping OK | {now}")
-            except Exception as e:
-                print(f"⚠️ Self-ping missed: {e}")
-            last_time = now
-            time.sleep(290)
+                except Exception as e:
+                    print(f"⚠️ Self-ping missed or timed out: {e}")
 
+                # 2. Discord Channel Ping
+                try:
+                    await send_to_host_channel("Pong!")
+                except Exception as e:
+                    print(f"❌ Failed to send Pong to Discord: {e}")
+
+            except Exception as global_error:
+                print(f"🚨 Critical loop error caught (Loop preserved): {global_error}")
+
+            # 3. Sleep is outside the internal try/except so it always delays safely
+            await asyncio.sleep(252)
+
+    # Start Flask server thread
     server_thread = Thread(target=run_server, daemon=True)
-    ping_thread = Thread(target=ping_loop, daemon=True)
     server_thread.start()
-    ping_thread.start()
-    print("✅ Keep-alive started on port 5000")
+    
+    # Schedule the asynchronous loop onto the bot's existing event loop
+    bot.loop.create_task(ping_loop())
+    print("✅ Keep-alive + Host Pong task initialized (Interval: 390s)")
 
 # ===================== BOT SETUP =====================
 TOKEN = os.getenv("token")
@@ -121,10 +177,9 @@ async def on_ready():
         with open("stats.json", "r") as f:
             stats = json.load(f)
         current_tz = stats.get("timezone", "America/Los_Angeles")
-        current_prefix = stats.get("prefix", ".")
+        current_prefix = stats.get("prefix")
     except Exception:
         current_tz = "America/Los_Angeles"
-        current_prefix = "."
     print("━" * 48)
     print("  📋 STATS.JSON GUIDE — edit to configure bot")
     print(f"  Prefix:   \"{current_prefix}\"  (use .prefix set <x> to change)")
@@ -162,29 +217,43 @@ async def on_ready():
             except Exception as e:
                 print(f"❌ Failed to leave {guild.name} ({guild.id}): {e}")
 
-    start_keep_alive()  # Start self-ping AFTER bot is online
+    start_keep_alive()
+
 
 @bot.event
-async def setup_hook():
+async def setup_hook():   
+    target_folder = "cogs" if os.path.exists("cogs") else "Cog"
+    # Dynamic extension list matching your exact active folder casing
+    #with open(os.path.join(target_folder, "blah.py"), "w", encoding="utf-8") as f:
+        #pass
+        
     cogs = [
-        "cogs.wordle",
-        "cogs.leaderboard",
-        "cogs.mode",
-        "cogs.difficulty",
-        "cogs.hint",
-        "cogs.reveal",
-        "cogs.endgame",
-        "cogs.help_cmd",
-        "cogs.admin",
-        "cogs.autoresponder",
-        "cogs.say",
-        "cogs.invite",
-        "cogs.ping",
-        "cogs.prefix",
+        f"{target_folder}.wordle",
+        f"{target_folder}.leaderboard",
+        f"{target_folder}.mode",
+        f"{target_folder}.difficulty",
+        f"{target_folder}.hint",
+        f"{target_folder}.reveal",
+        f"{target_folder}.endgame",
+        f"{target_folder}.help_cmd",
+        f"{target_folder}.admin",
+        f"{target_folder}.autoresponder",
+        f"{target_folder}.say",
+        f"{target_folder}.invite",
+        f"{target_folder}.ping",
+        f"{target_folder}.leaveserver",
+        f"{target_folder}.prefix",
+        f"{target_folder}.stats"  # <-- Loads perfectly now!
     ]
+
     for cog in cogs:
-        await bot.load_extension(cog)
+        try:
+            await bot.load_extension(cog)
+        except Exception as e:
+            print(f"❌ Failed to load extension {cog}: {e}")
+
     await bot.tree.sync()
+    print("🚀 Bot application commands synced successfully!")
 
 @bot.tree.error
 async def on_tree_error(interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
@@ -226,10 +295,21 @@ async def on_message(message):
     if re.fullmatch(r'<@!?' + str(bot.user.id) + r'>', message.content.strip()):
         try:
             with open(STATS_FILE, "r") as f:
-                prefix = json.load(f).get("prefix", ".")
+                data = json.load(f)
+            
+            # Default to global prefix
+            prefix = data.get("prefix", ".")
+            globalprefix = prefix
+            
+            # Check if there is a custom prefix configured for this specific server
+            if message.guild:
+                server_prefix = data.get("server_prefixes", {}).get(str(message.guild.id))
+                if server_prefix:
+                    prefix = server_prefix
         except Exception:
             prefix = "."
-        await message.channel.send(f"My prefix is: `{prefix}`")
+            
+        await message.channel.send(f"My prefix is: `{prefix}`\nGlobal prefix: `{globalprefix}`")
         return
 
     if is_maintenance_mode() and not is_admin(message.author.id):

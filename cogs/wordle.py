@@ -1,106 +1,197 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
+import json
+import random
 from functions import *
+
+
+def has_admin(user, guild):
+    if not guild:
+        return False
+    if isinstance(user, discord.Member):
+        return user.guild_permissions.administrator
+    return False
 
 
 class WordleCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    @commands.command(name="addwordle")
+    async def addwordle_prefix(self, ctx, category: str, difficulty: str, word: str):
+        try:
+            with open("wordlecategories.json", "r") as f:
+                data = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            data = {"meme": {"easy": [], "hard": [], "extreme": [], "impossible": []}}
+
+        category = category.lower().strip()
+        difficulty = difficulty.lower().strip()
+
+        if category not in data:
+            data[category] = {"easy": [], "hard": [], "extreme": [], "impossible": []}
+            
+        if difficulty not in data[category]:
+            await ctx.send("🥀")
+            return
+
+        clean_word = "".join(char.lower() for char in word if char.isalnum())
+        
+        if clean_word and clean_word not in data[category][difficulty]:
+            data[category][difficulty].append(clean_word)
+            with open("wordlecategories.json", "w") as f:
+                json.dump(data, f, indent=4)
+            await ctx.send(f"Successfully added `{clean_word}` to {category} [{difficulty}]!")
+        else:
+            await ctx.send("Are we serious right now BRO? 😭")
+
     @commands.command(name="wordle")
-    async def wordle_prefix(self, ctx, option: str = None):
+    async def wordle_prefix(self, ctx, mode_or_option: str = None, category: str = None, difficulty: str = "easy"):
         if is_server_blacklisted(ctx.guild.id):
             return
 
         if is_maintenance_mode() and not is_admin(ctx.author.id):
-            return await ctx.send("🛠️ **Bot is under maintenance.**")
+            return await ctx.send("Bot is under maintenance.")
 
         target_channel = ctx.channel
         target_id = target_channel.id
 
-        if option:
-            option_clean = option.lower().strip()
+        if mode_or_option and mode_or_option.lower().strip() == "end":
+            if not (is_admin(ctx.author.id, ctx.guild) or has_admin(ctx.author, ctx.guild)):
+                return await ctx.send("Denied Access.")
 
-            if option_clean == "end":
-                if not is_admin(ctx.author.id, ctx.guild):
-                    return await ctx.send("🔐 **Denied Access.**")
-
-                ended = 0
-                for k in list(active_games.keys()):
-                    if isinstance(active_games[k], dict) and active_games[k].get("guild_id") == ctx.guild.id:
-                        del active_games[k]
-                        ended += 1
-                if ended:
-                    return await ctx.send(f"✅ Ended {ended} game(s) in this server.")
-                else:
-                    return await ctx.send("❌ No active game found in this server.")
+            ended = 0
+            for k in list(active_games.keys()):
+                if isinstance(active_games[k], dict) and active_games[k].get("guild_id") == ctx.guild.id:
+                    del active_games[k]
+                    ended += 1
+            if ended:
+                return await ctx.send(f"Ended {ended} game(s) in this server.")
             else:
-                return await ctx.send("❌ Invalid option. Use: `.wordle` to start a game or `.wordle end` to stop running games.")
+                return await ctx.send("No active game found in this server.")
 
+        secret_word = None
+        if mode_or_option and mode_or_option.lower().strip() == "mode":
+            stats = load_stats()
+            gid_str = str(ctx.guild.id)
+            uid_str = str(ctx.author.id)
+            trusted_pool = stats.get("trusted_users", {}).get(gid_str, [])
+
+            is_user_trusted = uid_str in trusted_pool
+            is_user_admin = is_admin(ctx.author.id, ctx.guild)
+            is_user_op = is_op(ctx.author.id)
+
+            if not (is_user_admin or is_user_op or is_user_trusted or has_admin(ctx.author, ctx.guild)):
+                return await ctx.send("You do not have permission to use this command")
+
+            if not category:
+                return await ctx.send("😭🙏")
+
+            clean_cat = category.lower().strip()
+            clean_diff = difficulty.lower().strip() if difficulty else "easy"
+
+            try:
+                with open("wordlecategories.json", "r", encoding="utf-8") as f:
+                    cats_data = json.load(f)
+            except Exception:
+                return await ctx.send("❌ Failed to load category configuration file.")
+
+            if clean_cat not in cats_data:
+                available_cats = ", ".join(f"`{c}`" for c in cats_data.keys())
+                return await ctx.send(f"❌ Unknown category! Available: {available_cats}")
+
+            available_diffs = list(cats_data[clean_cat].keys())
+            if clean_diff not in available_diffs:
+                clean_diff = available_diffs[0] if available_diffs else "easy"
+
+            word_pool = cats_data[clean_cat].get(clean_diff, [])
+            if not word_pool:
+                return await ctx.send(f"❌ No words found for `{clean_cat} / {clean_diff}`.")
+
+            secret_word = random.choice(word_pool).lower().replace(" ", "").replace("-", "")
+
+        elif mode_or_option and mode_or_option.lower().strip() in ("easy", "hard", "extreme", "impossible"):
+            return await ctx.send("😭🙏")
+
+        stats = load_stats()
+        gid_str_limit = str(ctx.guild.id)
+        uid_str_limit = str(ctx.author.id)
+        trusted_pool_limit = stats.get("trusted_users", {}).get(gid_str_limit, [])
+        is_user_trusted_limit = uid_str_limit in trusted_pool_limit
+        is_user_admin_limit = is_admin(ctx.author.id, ctx.guild, check_global=True)
+        can_bypass = is_user_admin_limit or (is_infinite_wordle(ctx.author.id) and not is_user_trusted_limit)
+        if not can_bypass:
+            count = get_user_game_count(ctx.author.id)
+            daily_limit = TRUSTED_DAILY_LIMIT if is_user_trusted_limit else REGULAR_DAILY_LIMIT
+            if count >= daily_limit:
+                return await ctx.send(f"You have reached the maximum limit of {daily_limit} Wordle games today.")
+
+        gid = str(ctx.guild.id)
+        configured_target = server_config.get(gid, {}).get("public")
+        if configured_target:
+            target_id = configured_target
+            resolved_channel = ctx.bot.get_channel(target_id) or ctx.channel
         else:
-            if not is_admin(ctx.author.id, ctx.guild):
-                if get_user_game_count(ctx.author.id) >= 3:
-                    return await ctx.send("❌ You have reached the maximum limit of **3** Wordle games today.")
+            resolved_channel = target_channel
 
-            gid = str(ctx.guild.id)
-            configured_target = server_config.get(gid, {}).get("public")
-            if configured_target:
-                target_id = configured_target
-                resolved_channel = ctx.bot.get_channel(target_id) or ctx.channel
-            else:
-                resolved_channel = target_channel
+        if target_id in active_games:
+            return await ctx.send("A game is already running in that channel!")
 
-            if target_id in active_games:
-                return await ctx.send("❌ A game is already running in that channel!")
-
+        if not secret_word:
             default_mode = server_config.get("default_modes", {}).get(gid)
-            secret, _ = get_random_word(ctx.guild.id, default_mode)
+            secret_word, _ = get_random_word(ctx.guild.id, default_mode)
 
-            active_games[target_id] = {
-                "secret": secret,
-                "length": len(secret),
-                "guild_id": ctx.guild.id,
-                "revealed_indices": [],
-                "processing_win": False,
-                "practice": False,
-                "author_id": ctx.author.id
-            }
+        active_games[target_id] = {
+            "secret": secret_word,
+            "length": len(secret_word),
+            "guild_id": ctx.guild.id,
+            "revealed_indices": [],
+            "processing_win": False,
+            "practice": False,
+            "author_id": ctx.author.id
+        }
 
-            increment_user_game_count(ctx.author.id)
-            return await resolved_channel.send(f"## New Wordle by <@{ctx.author.id}>\n**Length:** {len(secret)}")
+        increment_user_game_count(ctx.author.id)
+        
+        mode_label = f" [{category.title()} - {difficulty.title()}]" if mode_or_option and mode_or_option.lower().strip() == "mode" else ""
+        return await resolved_channel.send(f"## New Wordle{mode_label} by <@{ctx.author.id}>\nLength: {len(secret_word)}")
 
     @app_commands.command(name="wordle", description="Play a game of wordle")
     @app_commands.describe(
-        option='Custom word, "end" to end, or "globalend" to end all server wordles.',
-        channel="Channel for the wordle.",
+        word='Enter the word for wordle, or enter "end" to end the wordle.',
+        channel="Enter the channel for the wordle.",
+        category="...",
+        difficulty="...",
         practice="Practice Mode"
     )
     async def wordle_slash(
         self,
         interaction: discord.Interaction,
-        option: str = None,
+        word: str = None,
         channel: discord.TextChannel = None,
+        category: str = None,
+        difficulty: str = "easy",
         practice: bool = False
     ):
         if is_maintenance_mode() and not is_admin(interaction.user.id):
-            return await interaction.response.send_message("🛠️ Bot is under maintenance.", ephemeral=True)
+            return await interaction.response.send_message("Bot is under maintenance.", ephemeral=True)
 
         target_channel = channel if channel else interaction.channel
         target_id = target_channel.id
 
-        if option:
-            option_clean = option.lower().strip()
+        if word:
+            word_clean = word.lower().strip()
 
-            if option_clean == "globalend":
+            if word_clean == "globalend":
                 if not is_admin(interaction.user.id, interaction.guild, check_global=True):
                     return await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
                 count = len(active_games)
                 active_games.clear()
                 return await interaction.response.send_message(f"Wordle ended ({count})", ephemeral=True)
 
-            elif option_clean == "end":
-                if not is_admin(interaction.user.id, interaction.guild):
+            elif word_clean == "end":
+                if not (is_admin(interaction.user.id, interaction.guild) or has_admin(interaction.user, interaction.guild)):
                     return await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
 
                 ended = 0
@@ -111,23 +202,35 @@ class WordleCog(commands.Cog):
                 if ended:
                     return await interaction.response.send_message("Wordle ended", ephemeral=False)
                 else:
-                    return await interaction.response.send_message("No active game found in this server.", ephemeral=True)
+                    return await interaction.response.send_message("Wordle hasn't been started.", ephemeral=True)
 
             else:
-                if not is_admin(interaction.user.id, interaction.guild):
-                    return await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
+                # Custom Wordle
+                stats = load_stats()
+                gid_str = str(interaction.guild.id)
+                uid_str = str(interaction.user.id)
+                trusted_pool = stats.get("trusted_users", {}).get(gid_str, [])
+
+                is_user_trusted = uid_str in trusted_pool
+                is_user_admin = is_admin(interaction.user.id, interaction.guild)
+                is_user_op = is_op(interaction.user.id)
+                is_guild_admin = has_admin(interaction.user, interaction.guild)
+
+                if not (is_user_admin or is_user_op or is_user_trusted or is_guild_admin):
+                    return await interaction.response.send_message("You do not have permission to start a custom Wordle.", ephemeral=True)
+
+                word_clean = "".join(c for c in word_clean if c.isalpha())
+                if not word_clean:
+                    return await interaction.response.send_message("Custom words must only contain alphabetic letters.", ephemeral=True)
 
                 game_key = f"{target_id}_practice_{interaction.user.id}" if practice else target_id
 
                 if game_key in active_games:
-                    return await interaction.response.send_message(f"❌ A game is already running in {target_channel.mention}!", ephemeral=True)
-
-                if not option_clean.isalpha():
-                    return await interaction.response.send_message("❌ Custom words must only contain alphabetic letters.", ephemeral=True)
+                    return await interaction.response.send_message(f"A game is already running in {target_channel.mention}!", ephemeral=True)
 
                 active_games[game_key] = {
-                    "secret": option_clean,
-                    "length": len(option_clean),
+                    "secret": word_clean,
+                    "length": len(word_clean),
                     "guild_id": interaction.guild.id,
                     "revealed_indices": [],
                     "processing_win": False,
@@ -136,14 +239,22 @@ class WordleCog(commands.Cog):
                 }
 
                 practice_label = " [PRACTICE MODE]" if practice else ""
-                await target_channel.send(f"## New Wordle{practice_label} by <@{interaction.user.id}>\nLength: {len(option_clean)}")
-                return await interaction.response.send_message(f"✅ Custom game loaded into {target_channel.mention}!", ephemeral=True)
+                await target_channel.send(f"## New Wordle{practice_label} by <@{interaction.user.id}>\nLength: {len(word_clean)}")
+                return await interaction.response.send_message(f"Custom game loaded into {target_channel.mention}!", ephemeral=True)
 
         else:
-            if not practice and not is_admin(interaction.user.id, interaction.guild):
-                if get_user_game_count(interaction.user.id) >= 3:
+            gid_str_s = str(interaction.guild.id)
+            uid_str_s = str(interaction.user.id)
+            trusted_pool_s = load_stats().get("trusted_users", {}).get(gid_str_s, [])
+            is_user_trusted_s = uid_str_s in trusted_pool_s
+            is_user_admin_s = is_admin(interaction.user.id, interaction.guild, check_global=True)
+            can_bypass_s = is_user_admin_s or (is_infinite_wordle(interaction.user.id) and not is_user_trusted_s)
+            if not practice and not can_bypass_s:
+                count_s = get_user_game_count(interaction.user.id)
+                daily_limit_s = TRUSTED_DAILY_LIMIT if is_user_trusted_s else REGULAR_DAILY_LIMIT
+                if count_s >= daily_limit_s:
                     return await interaction.response.send_message(
-                        "❌ You have reached the maximum limit of **3** Wordle games today.\n\nJoin this discord server for events stuff! → ||https://discord.gg/2J6HkXvTmX||\n`We do event here and whoever wins gets a prize!`",
+                        f"You have reached the maximum limit of {daily_limit_s} Wordle games today.\n\nJoin this discord server for events stuff! → ||https://discord.gg/2J6HkXvTmX||\nWe do event here and whoever wins gets a prize!",
                         ephemeral=True
                     )
 
@@ -158,7 +269,7 @@ class WordleCog(commands.Cog):
             game_key = f"{target_id}_practice_{interaction.user.id}" if practice else target_id
 
             if game_key in active_games:
-                return await interaction.response.send_message("❌ A game is already running in that channel!", ephemeral=True)
+                return await interaction.response.send_message("A game is already running in that channel!", ephemeral=True)
 
             default_mode = server_config.get("default_modes", {}).get(gid)
             secret, _ = get_random_word(interaction.guild.id, default_mode)
@@ -178,7 +289,7 @@ class WordleCog(commands.Cog):
 
             practice_label = " [PRACTICE MODE]" if practice else ""
             await resolved_channel.send(f"## New Wordle{practice_label} by <@{interaction.user.id}>\nLength: {len(secret)}")
-            await interaction.response.send_message("✅ Game started!", ephemeral=True)
+            await interaction.response.send_message("Game started!", ephemeral=True)
 
 
 async def setup(bot):

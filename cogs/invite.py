@@ -3,7 +3,6 @@ from discord.ext import commands
 from discord import app_commands
 from functions import *
 
-
 class InviteBotView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -12,7 +11,6 @@ class InviteBotView(discord.ui.View):
             url="https://discord.com/api/oauth2/authorize?client_id=1502654737219321926&permissions=6755418768566336&scope=bot",
             style=discord.ButtonStyle.link
         ))
-
 
 class InviteCog(commands.Cog):
     def __init__(self, bot):
@@ -26,21 +24,32 @@ class InviteCog(commands.Cog):
         if str(ctx.author.id) not in ADMIN_IDS:
             return await ctx.send("You do not have permission to use this command.")
 
-        if not category or not target_id:
+        if not category:
             return await ctx.send(
                 "❌ **Usage:**\n`.addinvite user <userID>`\n`.addinvite user <userID> remove`\n"
                 "`.addinvite server <serverID>`\n`.addinvite server <serverID> remove`\n"
-                "`.addinvite cleanall` (wipes users)"
+                "`.addinvite cleanall`"
             )
 
-        if category.lower().strip() == "cleanall":
+        category = category.lower().strip()
+
+        # Handle cleanall safely without requiring a target_id
+        if category == "cleanall":
             stats = load_stats()
             stats["invited_users"] = []
             save_stats(stats)
             return await ctx.send("🔓 Successfully **wiped the user invite whitelist**.")
 
-        category = category.lower().strip()
-        clean_id = target_id.replace("<@", "").replace("!", "").replace(">", "").strip()
+        # If it's not cleanall, we strictly REQUIRE the target_id
+        if not target_id:
+            return await ctx.send("❌ Please provide a valid User ID or Server ID.")
+
+        # Scrub the ID completely of channels, roles, or accidental copy-paste symbols
+        clean_id = str(target_id).replace("<@", "").replace("!", "").replace(">", "").replace("#", "").strip()
+
+        # Final sanity check: Ensure the serverID consists ONLY of numbers
+        if not clean_id.isdigit():
+            return await ctx.send(f"❌ `{target_id}` is not a valid numeric ID. Make sure it contains only numbers.")
 
         if category == "user":
             stats = load_stats()
@@ -84,6 +93,7 @@ class InviteCog(commands.Cog):
             if clean_id in pool:
                 return await ctx.send("ℹ️ Server is already whitelisted.")
 
+            # Append as a string to perfectly match main.py's json verification loop
             pool.append(clean_id)
             save_stats(stats)
             return await ctx.send(f"✅ Server ID `{clean_id}` added to allowed servers list!")
@@ -111,7 +121,6 @@ class InviteCog(commands.Cog):
             view=InviteBotView(),
             ephemeral=True
         )
-
 
 async def setup(bot):
     await bot.add_cog(InviteCog(bot))

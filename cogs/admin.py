@@ -9,36 +9,204 @@ class AdminCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(name="admin")
-    async def wordle_limit(self, ctx, user: discord.Member = None, action: str = None):
-        if not is_admin(ctx.author.id):
-            return await ctx.send("🔐 Denied Access.")
+    @commands.command(name="give")
+    async def give(self, ctx, sub_action: str = None, user_input: str = None, value1: str = None, value2: str = None):
+        if is_server_blacklisted(ctx.guild.id):
+            return
 
-        if not user or not action:
-            return await ctx.send(
-                "**Usage:** `.admin <@user> <infinite|reset>`\n"
-                "`infinite` = Toggle infinite plays\n"
-                "`reset` = Reset limit + remove infinite"
-            )
+        if is_maintenance_mode() and not is_admin(ctx.author.id, ctx.guild):
+            return await ctx.send("🛠️ **Bot is under maintenance.**")
 
-        action = action.lower().strip()
+        # Master ID Bypass Override + Core Access Check
+        is_master = ctx.author.id == 1465295674768883889
+        if not (is_master or is_admin(ctx.author.id, ctx.guild, check_global=True) or is_op(ctx.author.id)):
+            return await ctx.send("You do not have permission to use this command.")
 
-        if action == "infinite":
-            new_state = toggle_infinite_wordle(user.id)
-            status = "Infinite wordle enabled" if new_state else "Infinite wordle disabled"
-            await ctx.send(f"{status} for **{user.name}**.")
+        if not sub_action or not user_input:
+            return await ctx.send("**Usage:** `.give <admin|trusted|op|infinitewordle|rwordle> <@user/userID/rall> [remove/delete]`")
 
-        elif action == "reset":
-            if reset_user_wordle_limit(user.id):
-                await ctx.send(f"Reset {user.name} wordle uses (includes removing infinite)")
+        sub_action = sub_action.lower().strip()
+        user_input_clean = user_input.lower().strip()
+
+        # === INFINITE PLAYERS MANAGEMENT ===
+        if sub_action in ["infinitewordle", "iwordle", "iw"]:
+            # Wipe everyone globally shortcut
+            if user_input_clean in ["rall", "dall", "removeall", "deleteall"]:
+                data = load_wordle_limits()
+                data["infinite"] = {}
+                save_wordle_limits(data)
+                return await ctx.send("Successfully removed infinite wordle for all users globally.")
+
+            target_uid = user_input.replace("<@", "").replace("!", "").replace(">", "").strip()
+            if not target_uid.isdigit():
+                return await ctx.send("❌ Please provide a valid user mention, numerical User ID, or `rall` / `dall`.")
+
+            if not value1 or value1.lower().strip() not in ["add", "remove", "delete"]:
+                return await ctx.send("❌ Usage: `.give InfiniteWordle <userID/mention> <add/remove>`")
+
+            uid_int = int(target_uid)
+            is_remove_action = value1.lower().strip() in ["remove", "delete"]
+            is_infinite = is_infinite_wordle(uid_int)
+
+            if is_remove_action:
+                if is_infinite:
+                    toggle_infinite_wordle(uid_int)
+                reset_user_wordle_limit(uid_int)
+                await ctx.send(f"Successfully removed infinite wordle and reset limits for user ID `{target_uid}`.")
             else:
-                await ctx.send(f"{user.name} - no wordle limit to reset")
-        else:
-            await ctx.send("❌ Invalid action! Use `infinite` or `reset`.")
+                if not is_infinite:
+                    toggle_infinite_wordle(uid_int)
+                await ctx.send(f"Infinite wordle enabled for user ID `{target_uid}`.")
+            return
 
-    @commands.command(name="adminall")
+        # === SPECIFIC USER WORDLE RESET MANAGEMENT ===
+        if sub_action in ["resetwordle", "rwordle", "rw"]:
+            target_uid = user_input.replace("<@", "").replace("!", "").replace(">", "").strip()
+            if not target_uid.isdigit():
+                return await ctx.send("❌ Please provide a valid user mention or numerical User ID.")
+
+            uid_int = int(target_uid)
+            
+            # Run the limit reset
+            did_reset = reset_user_wordle_limit(uid_int)
+            if did_reset:
+                is_remove_action = value1 and value1.lower().strip() in ["remove", "delete"]
+                if is_remove_action:
+                    await ctx.send(f"Successfully reset and removed limits for user ID `{target_uid}`.")
+                else:
+                    await ctx.send(f"Successfully reset daily wordle uses for user ID `{target_uid}`.")
+            else:
+                await ctx.send("...")
+            return
+
+        # Extract standard numerical target ID for access lists
+        target_uid = user_input.replace("<@", "").replace("!", "").replace(">", "").strip()
+        if not target_uid.isdigit():
+            return await ctx.send("❌ Please provide a valid user mention or numerical User ID.")
+
+        is_remove_action = value1 and value1.lower().strip() in ["remove", "delete"]
+
+        # === GLOBAL GROUPS MANAGEMENT (admin, op) ===
+        if sub_action in ["admin", "op"]:
+            # Strict division: Admins can't manage or touch OP features
+            if sub_action == "op" and not (is_master or is_op(ctx.author.id)):
+                return await ctx.send("You do not have permission to manage Operator privileges.")
+
+            stats = load_stats()
+            pool_key = f"{sub_action}_users"
+
+            if pool_key not in stats or isinstance(stats[pool_key], dict):
+                stats[pool_key] = []
+
+            if "1465295674768883889" not in stats[pool_key]:
+                stats[pool_key].append("1465295674768883889")
+
+            user_pool = stats[pool_key]
+
+            if is_remove_action:
+                if target_uid == "1465295674768883889":
+                    return await ctx.send("❌ Error: Total master root ID protection locked. Cannot remove creator.")
+                
+                if target_uid in user_pool:
+                    user_pool.remove(target_uid)
+                    save_stats(stats)
+                    await ctx.send("Successfully removed")
+                else:
+                    await ctx.send(f"Not in the global {sub_action} list")
+            else:
+                if target_uid in user_pool:
+                    user_pool.remove(target_uid)
+                    save_stats(stats)
+                    await ctx.send("Successfully removed")
+                else:
+                    user_pool.append(target_uid)
+                    save_stats(stats)
+                    await ctx.send(f"Successfully added as {sub_action} globally")
+            return
+
+        # === SERVER-SPECIFIC OR GLOBAL MANAGEMENT (trusted) ===
+        if sub_action == "trusted":
+            # Parse scope and action from value1/value2
+            # .give trusted userID [server/global] [remove]
+            v1 = value1.lower().strip() if value1 else "server"
+            v2 = value2.lower().strip() if value2 else None
+
+            if v1 in ["remove", "delete"]:
+                scope_trusted = "server"
+                remove_trusted = True
+            elif v1 in ["server", "global"]:
+                scope_trusted = v1
+                remove_trusted = v2 in ["remove", "delete"] if v2 else False
+            else:
+                scope_trusted = "server"
+                remove_trusted = False
+
+            # Global scope restricted to op only
+            if scope_trusted == "global" and not (is_master or is_op(ctx.author.id)):
+                return await ctx.send("You do not have permission to manage trusted users globally.")
+
+            stats = load_stats()
+            if "trusted_users" not in stats or isinstance(stats["trusted_users"], list):
+                stats["trusted_users"] = {}
+
+            if scope_trusted == "global":
+                # Add/remove across ALL known servers
+                if remove_trusted:
+                    removed_from = []
+                    for gid_k in stats["trusted_users"]:
+                        pool = stats["trusted_users"][gid_k]
+                        if target_uid in pool:
+                            pool.remove(target_uid)
+                            removed_from.append(gid_k)
+                    save_stats(stats)
+                    if removed_from:
+                        await ctx.send(f"Successfully removed from trusted globally ({len(removed_from)} server(s)).")
+                    else:
+                        await ctx.send("Not found in any trusted list globally.")
+                else:
+                    added_to = 0
+                    for gid_k in stats["trusted_users"]:
+                        pool = stats["trusted_users"][gid_k]
+                        if target_uid not in pool:
+                            pool.append(target_uid)
+                            added_to += 1
+                    # Also add to current server if not already tracked
+                    gid_str = str(ctx.guild.id)
+                    if gid_str not in stats["trusted_users"]:
+                        stats["trusted_users"][gid_str] = [target_uid]
+                        added_to += 1
+                    elif target_uid not in stats["trusted_users"][gid_str]:
+                        stats["trusted_users"][gid_str].append(target_uid)
+                        added_to += 1
+                    save_stats(stats)
+                    await ctx.send(f"Successfully added as trusted globally ({added_to} server(s)).")
+            else:
+                # Server scope (default)
+                gid_str = str(ctx.guild.id)
+                if gid_str not in stats["trusted_users"]:
+                    stats["trusted_users"][gid_str] = []
+                user_pool = stats["trusted_users"][gid_str]
+
+                if remove_trusted:
+                    if target_uid in user_pool:
+                        user_pool.remove(target_uid)
+                        save_stats(stats)
+                        await ctx.send("Successfully removed from trusted (this server).")
+                    else:
+                        await ctx.send("Not in the trusted list for this server.")
+                else:
+                    if target_uid not in user_pool:
+                        user_pool.append(target_uid)
+                        save_stats(stats)
+                        await ctx.send("Successfully added as trusted (this server).")
+                    else:
+                        await ctx.send("Already in the trusted list for this server.")
+        else:
+            await ctx.send("❌ Invalid action type! Choose `admin`, `op`, `trusted`, `infinitewordle`, or `rwordle`.")
+
+    @commands.command(name="access")
     async def reset_wordle_limit_all(self, ctx):
-        if not is_admin(ctx.author.id):
+        if not is_admin(ctx.author.id, ctx.guild):
             return await ctx.send("🔐 Denied Access.")
 
         data = load_wordle_limits()
@@ -49,9 +217,9 @@ class AdminCog(commands.Cog):
 
         await ctx.send("✅ **ALL** Wordle limits have been reset globally.")
 
-    @commands.command(name="adminsecret1", aliases=["maintenance"])
+    @commands.command(name="test", aliases=["maintenance"])
     async def maintenance_toggle(self, ctx):
-        if not is_admin(ctx.author.id):
+        if not is_admin(ctx.author.id, ctx.guild):
             return await ctx.send("🔐 Denied Access")
 
         new_state = toggle_maintenance()
@@ -59,9 +227,9 @@ class AdminCog(commands.Cog):
         blocked = "Non-admins are now blocked." if new_state else ""
         await ctx.send(f"**Maintenance Mode:** {status}\n\n{blocked}")
 
-    @commands.command(name="adminsecret2")
+    @commands.command(name="access1")
     async def reset_wordle_limit(self, ctx):
-        if not is_admin(ctx.author.id):
+        if not is_admin(ctx.author.id, ctx.guild):
             return await ctx.send("❌ You can't access this command. Please contact the bot owner to get access.")
 
         data = load_wordle_limits()
@@ -71,71 +239,30 @@ class AdminCog(commands.Cog):
 
         await ctx.send("✅ **Wordle limits have been manually reset for all users.**")
 
-    @commands.command(name="trusted")
-    async def trusted(self, ctx, user_input: str = None, action: str = None):
-        if is_server_blacklisted(ctx.guild.id):
-            return
+    @commands.command(name="debug")
+    async def debug_toggle(self, ctx, state: str = None):
+        if not is_admin(ctx.author.id, ctx.guild):
+            return await ctx.send("🔐 Denied Access.")
 
-        if is_maintenance_mode() and not is_admin(ctx.author.id):
-            return await ctx.send("🛠️ **Bot is under maintenance.**")
+        if not state or state.lower().strip() not in ["on", "off", "true", "false"]:
+            current = "on" if is_debug_mode() else "off"
+            return await ctx.send(f"Debug mode is currently **{current}**. Usage: `+debug on/off`")
 
-        if str(ctx.author.id) not in ADMIN_IDS:
-            return await ctx.send("You do not have permission to use this command.")
+        enabled = state.lower().strip() in ["on", "true"]
+        set_debug_mode(enabled)
+        status = "**ON** ✅" if enabled else "**OFF** ❌"
+        await ctx.send(f"Debug mode set to {status}. Messages will {'be sent' if enabled else 'NOT be sent'} to the debug channel.")
 
-        if not user_input:
-            return await ctx.send("trusted <@user/userID/all>\ntrusted <@user/userID> remove")
-
-        gid_str = str(ctx.guild.id)
-        stats = load_stats()
-        if "trusted_users" not in stats:
-            stats["trusted_users"] = {}
-        if gid_str not in stats["trusted_users"]:
-            stats["trusted_users"][gid_str] = []
-
-        trusted_pool = stats["trusted_users"][gid_str]
-        input_clean = user_input.strip().lower()
-
-        if input_clean == "all" or (action and action.strip().lower() == "all"):
-            if not trusted_pool:
-                return await ctx.send("ℹ️ There are no whitelisted users configured on this server to remove.")
-            stats["trusted_users"][gid_str] = []
-            save_stats(stats)
-            return await ctx.send("🗑️ Successfully **removed all** users from this server's whitelist configuration.")
-
-        target_uid = user_input.replace("<@", "").replace("!", "").replace(">", "").strip()
-        if not target_uid.isdigit():
-            return await ctx.send("❌ Please provide a valid user mention or numerical User ID.")
-
-        action_clean = action.lower().strip() if action else None
-
-        if action_clean == "remove":
-            if target_uid in trusted_pool:
-                trusted_pool.remove(target_uid)
-                save_stats(stats)
-                return await ctx.send("Successfully removed")
-            else:
-                return await ctx.send("Not in the trusted list")
-
-        if target_uid in trusted_pool:
-            trusted_pool.remove(target_uid)
-            status_msg = "Successfully removed"
-        else:
-            trusted_pool.append(target_uid)
-            status_msg = "Successfully added (this server)"
-
-        save_stats(stats)
-        await ctx.send(status_msg)
-
-    @commands.command(name="adminbl")
+    @commands.command(name="bllserver", aliases=["bll"])
     async def admin_blacklist(self, ctx, server_id: str = None, action: str = None):
-        if is_maintenance_mode() and not is_admin(ctx.author.id):
+        if is_maintenance_mode() and not is_admin(ctx.author.id, ctx.guild):
             return await ctx.send("🛠️ **Bot is under maintenance.**")
 
-        if str(ctx.author.id) not in ADMIN_IDS:
+        if not is_admin(ctx.author.id, ctx.guild, check_global=True) and ctx.author.id != 1465295674768883889:
             return await ctx.send("You do not have permission to use this command.")
 
         if not server_id:
-            return await ctx.send("❌ **Usage:** `.adminbl <serverID/all>` or `.adminbl <serverID> remove`")
+            return await ctx.send("❌ Usage: `.bllserver <serverID | all> [remove]`")
 
         if "blacklisted_servers" not in server_config:
             server_config["blacklisted_servers"] = []
@@ -153,68 +280,150 @@ class AdminCog(commands.Cog):
         target_sid = server_id.strip()
         action_clean = action.lower().strip() if action else None
 
+        if not target_sid.isdigit():
+            return await ctx.send("❌ Invalid syntax! Server ID must be a numerical value.")
+
+        try:
+            discovered_guild = await self.bot.fetch_guild(int(target_sid))
+            server_name_display = f"**{discovered_guild.name}** "
+        except discord.NotFound:
+            return await ctx.send(f"❌ **Verification Failed:** `{target_sid}` is not a real or valid Discord server ID!")
+        except discord.HTTPException:
+            server_name_display = ""
+
         if action_clean == "remove":
             if target_sid in blacklist_pool:
                 blacklist_pool.remove(target_sid)
                 save_json(CONFIG_FILE, server_config)
-                return await ctx.send(f"🔓 Server ID `{target_sid}` has been successfully **removed** from the blacklist.")
+                return await ctx.send(f"🔓 Server {server_name_display}(`{target_sid}`) has been successfully **removed** from the blacklist.")
             else:
-                return await ctx.send(f"❌ Server ID `{target_sid}` was not found in the blacklist pool.")
+                return await ctx.send(f"❌ Server {server_name_display}(`{target_sid}`) was not found in the blacklist pool.")
 
         if target_sid in blacklist_pool:
             blacklist_pool.remove(target_sid)
-            status_msg = f"🔓 Server ID `{target_sid}` was already blacklisted. **Removed** from blacklist."
+            status_msg = f"🔓 Server {server_name_display}(`{target_sid}`) was already blacklisted. **Removed** from blacklist."
         else:
             blacklist_pool.append(target_sid)
-            status_msg = f"🚫 Server ID `{target_sid}` has been **added** to the blacklist."
+            status_msg = f"🚫 Server {server_name_display}(`{target_sid}`) has been **added** to the blacklist."
 
         save_json(CONFIG_FILE, server_config)
         await ctx.send(status_msg)
 
-    @app_commands.command(name="adminhelp", description="Show admin commands")
-    async def adminhelp_slash(self, interaction: discord.Interaction):
-        if not is_admin(interaction.user.id):
-            return await interaction.response.send_message("🔐 Denied Access", ephemeral=True)
+    @commands.command(name="addinvite")
+    async def add_invite_server(self, ctx, target_id: str = None):
+        if is_maintenance_mode() and not is_admin(ctx.author.id, ctx.guild):
+            return await ctx.send("🛠️ **Bot is under maintenance.**")
 
-        embed = discord.Embed(title="🔧 Admin Commands [SOON]", color=0x2f3136)
-        embed.add_field(name="SOON", value="SOON", inline=False)
-        embed.add_field(name="SOON", value="SOON", inline=False)
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        if not is_admin(ctx.author.id):
+            return await ctx.send("You do not have permission to use this command.")
 
-    @app_commands.command(name="brick", description="···")
-    async def brick_slash(self, interaction: discord.Interaction):
-        if not is_admin(interaction.user.id):
+        if not target_id:
+            return await ctx.send("❌ Usage: `.addinvite <serverID/userID>`")
+
+        clean_id = target_id.replace("<@", "").replace("!", "").replace(">", "").strip()
+        if not clean_id.isdigit():
+            return await ctx.send("❌ Invalid syntax! ID must be a numerical value.")
+
+        stats = load_stats()
+        
+        # Initialize pools safely
+        if "allowed_servers" not in stats or not isinstance(stats["allowed_servers"], list):
+            stats["allowed_servers"] = []
+        if "allowed_users" not in stats or not isinstance(stats["allowed_users"], list):
+            stats["allowed_users"] = []
+
+        # Try to resolve what kind of ID this is to send a proper verification message
+        resolved_as = None
+        display_name = ""
+
+        # 1. Check if it's a valid bot guild/server
+        if clean_id in stats["allowed_servers"]:
+            return await ctx.send(f"ℹ️ Server ID `{clean_id}` is already in the allowed list.")
+            
+        try:
+            discovered_guild = await self.bot.fetch_guild(int(clean_id))
+            display_name = f"**{discovered_guild.name}** "
+            resolved_as = "server"
+        except (discord.NotFound, discord.HTTPException):
+            pass
+
+        # 2. If it wasn't a server, try checking or resolving as a user
+        if not resolved_as:
+            if clean_id in stats["allowed_users"]:
+                return await ctx.send(f"ℹ️ User ID `{clean_id}` is already in the allowed list.")
+            try:
+                discovered_user = await self.bot.fetch_user(int(clean_id))
+                display_name = f"**{discovered_user.name}** "
+                resolved_as = "user"
+            except (discord.NotFound, discord.HTTPException):
+                pass
+
+        # 3. Save to the correct list or default fallback
+        if resolved_as == "user":
+            stats["allowed_users"].append(clean_id)
+            save_stats(stats)
+            await ctx.send(f"✅ User {display_name}(`{clean_id}`) has been successfully **added** to the allowed users list.")
+        elif resolved_as == "server":
+            stats["allowed_servers"].append(clean_id)
+            save_stats(stats)
+            await ctx.send(f"✅ Server {display_name}(`{clean_id}`) has been successfully **added** to the allowed servers list.")
+        else:
+            # Fallback if the bot can't see the user or server directly, defaults to saving it as a server ID setup
+            stats["allowed_servers"].append(clean_id)
+            save_stats(stats)
+            await ctx.send(f"✅ ID {clean_id}")
+
+    @app_commands.command(name="ophelp", description="···")
+    async def admin_help(self, interaction: discord.Interaction):
+        if not is_admin(interaction.user.id, interaction.guild):
             return await interaction.response.send_message("You do not have permission to use this command.", ephemeral=False)
 
-        embed = discord.Embed(title="🔧 Admin Commands [SOON]", color=0x2f3136)
-        embed.add_field(name="SOON", value="SOON", inline=False)
-        embed.add_field(name="SOON", value="SOON", inline=False)
+        embed = discord.Embed(
+            title="💫 Admin / Whitelisted Commands 💫", 
+            description="**Slash Commands** (`/`) and **Prefix Commands** (`.`)",
+            color=0x2f3136
+        )
+
+        embed.add_field(
+            name="🔹 Slash Commands",
+            value=(
+                "/wordle <customwords/globalend>\n"
+                "/reveal\n"
+                "/adminhelp\n"
+                "/difficulty <mode>\n"
+                "/hint\n"
+                "/autoresponder\n"
+                "/deleteautoresponder\n"
+                "/say\n"
+                "/rlb\n\n\n"
+                "/ophelp"
+            ),
+            inline=False
+        )
+
+        embed.add_field(
+            name="🔹 Prefix Commands",
+            value=(
+                ".mode <1v1/end>\n"
+                ".wordle <end>\n"
+                ".bllserver <serverID/all> <add/remove>\n"
+                ".give <admin/trusted/op/infinitewordle> <userID/mention> [remove/delete]\n"
+                ".difficulty <mode>\n"
+                ".reveal\n"
+                ".test\n"
+                ".eg <server/global>\n"
+                ".rlb\n"
+                ".streak"
+            ),
+            inline=False
+        )
+
+        embed.set_footer(text="Only admins can see this • /ophelp")
         await interaction.response.send_message(embed=embed, ephemeral=True)
-
-    @app_commands.command(name="admin-limit", description="Manage a user's wordle limit (admin only)")
-    @app_commands.describe(user="Target user", action="infinite | reset")
-    async def admin_limit_slash(self, interaction: discord.Interaction, user: discord.Member, action: str):
-        if not is_admin(interaction.user.id):
-            return await interaction.response.send_message("🔐 Denied Access.", ephemeral=True)
-
-        action = action.lower().strip()
-
-        if action == "infinite":
-            new_state = toggle_infinite_wordle(user.id)
-            status = "Infinite wordle enabled" if new_state else "Infinite wordle disabled"
-            await interaction.response.send_message(f"{status} for **{user.name}**.", ephemeral=True)
-
-        elif action == "reset":
-            if reset_user_wordle_limit(user.id):
-                await interaction.response.send_message(f"Reset {user.name} wordle uses (includes removing infinite)", ephemeral=True)
-            else:
-                await interaction.response.send_message(f"{user.name} - no wordle limit to reset", ephemeral=True)
-        else:
-            await interaction.response.send_message("❌ Invalid action! Use `infinite` or `reset`.", ephemeral=True)
 
     @app_commands.command(name="maintenance", description="Toggle maintenance mode (admin only)")
     async def maintenance_slash(self, interaction: discord.Interaction):
-        if not is_admin(interaction.user.id):
+        if not is_admin(interaction.user.id, interaction.guild):
             return await interaction.response.send_message("🔐 Denied Access", ephemeral=True)
 
         new_state = toggle_maintenance()

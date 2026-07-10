@@ -30,7 +30,7 @@ class RevealCog(commands.Cog):
 
         await ctx.send("❌ No active game or 1v1 match in this channel.")
 
-    @app_commands.command(name="reveal", description="Reveal the current secret word (admin only)")
+    @app_commands.command(name="reveal", description="···")
     async def reveal_slash(self, interaction: discord.Interaction):
         if not is_admin(interaction.user.id):
             return await interaction.response.send_message("You do not have permission to use this command.", ephemeral=False)

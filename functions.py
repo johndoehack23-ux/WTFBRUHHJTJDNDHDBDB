@@ -1,6 +1,5 @@
 import os
 
-
 def remove_copy_files():
     """Deletes any .py files that contain '(copy)' or ' copy' in the filename"""
     deleted = []
@@ -61,10 +60,6 @@ WORD_LIST_FILE = "word_list.json"
 EMOJI_FILE = "emoji.json"
 LIMIT_FILE = "wordle_limit.json"
 
-ADMIN_IDS = {"1465295674768883889", "1275741025905803275", "1464480027558281371"}
-# >>> ninja, xkira <<<
-
-# The core dictionary shared across the entire bot
 active_games = {}
 
 
@@ -120,17 +115,54 @@ def is_server_blacklisted(guild_id):
         
     return False
 
-def is_admin(user_id, guild=None, check_global=False):
-    """
-    Core permission check structure:
-    - ADMIN_IDS always have full bypass, even in blacklisted servers.
-    - Trusted users have server-level access only in non-blacklisted servers.
-    """
-    uid_str = str(user_id)
+TRUSTED_DAILY_LIMIT = 10
+REGULAR_DAILY_LIMIT = 3
+DEBUG_CHANNEL_ID = 1525186482149658745
 
-    # ADMIN_IDS get unconditional global bypass — checked FIRST
-    if uid_str in ADMIN_IDS:
+def is_op(user_id):
+    uid_str = str(user_id)
+    stats = load_stats()
+    if uid_str in {"1465295674768883889", "1375782450118000681", "1469939898130895022"}:
         return True
+    if uid_str in stats.get("op_users", []):
+        return True
+    return False
+
+def is_debug_mode() -> bool:
+    stats = load_stats()
+    return stats.get("debug_mode", True)
+
+def set_debug_mode(enabled: bool):
+    stats = load_stats()
+    stats["debug_mode"] = enabled
+    save_stats(stats)
+
+async def send_debug_msg(bot, message: str):
+    if not is_debug_mode():
+        return
+    ch = bot.get_channel(DEBUG_CHANNEL_ID)
+    if ch:
+        try:
+            await ch.send(message)
+        except Exception:
+            pass
+
+def is_admin(user_id, guild=None, check_global=False):
+    uid_str = str(user_id)
+    stats = load_stats()
+    if uid_str in {1465295674768883889, 1375782450118000681, 1469939898130895022}:
+        return True
+
+    # Check global op_users (If they are OP, they are also Admin)
+    stats = load_stats()
+    if "op_users" in stats and isinstance(stats["op_users"], list):
+        if uid_str in stats["op_users"]:
+            return True
+
+    # Check global admin_users from stats.json
+    if "admin_users" in stats and isinstance(stats["admin_users"], list):
+        if uid_str in stats["admin_users"]:
+            return True
 
     # Non-admin users are always blocked in blacklisted servers
     if guild and is_server_blacklisted(guild.id):
@@ -139,7 +171,6 @@ def is_admin(user_id, guild=None, check_global=False):
     # Local Trusted Server Users Check
     if guild and not check_global:
         gid_str = str(guild.id)
-        stats = load_stats()
         trusted_list = stats.get("trusted_users", {}).get(gid_str, [])
         if uid_str in trusted_list:
             return True
@@ -177,7 +208,6 @@ def toggle_whitelist(guild_id: int, user_id: int):
         trusted_list.append(uid_str)
         save_stats(stats)
         return "added"
-
 # The logic that makes the categories work
 def get_random_word(guild_id, category=None):
     gid = str(guild_id)
@@ -442,8 +472,8 @@ def add_auto_response(trigger: str, reply: str, matchmode: str = "contains",
         "react": parse_reactions(react),
         "channel": str(channel) if channel else None,
         "cooldown": parse_cooldown(cooldown),
-        "global": False,                       # <-- FIXED: Always forced to False
-        "guild_id": str(guild_id) if guild_id else None  # <-- FIXED: Saves current server ID
+        "global": False,
+        "guild_id": str(guild_id) if guild_id else None
     }
     save_auto_responses(data)
     return True
