@@ -150,7 +150,7 @@ async def send_debug_msg(bot, message: str):
 def is_admin(user_id, guild=None, check_global=False):
     uid_str = str(user_id)
     stats = load_stats()
-    if uid_str in {1465295674768883889, 1375782450118000681, 1469939898130895022}:
+    if uid_str in {"1465295674768883889", "1375782450118000681", "1469939898130895022"}:
         return True
 
     # Check global op_users (If they are OP, they are also Admin)
