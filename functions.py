@@ -141,11 +141,16 @@ async def send_debug_msg(bot, message: str):
     if not is_debug_mode():
         return
     ch = bot.get_channel(DEBUG_CHANNEL_ID)
-    if ch:
+    if ch is None:
         try:
-            await ch.send(message)
-        except Exception:
-            pass
+            ch = await bot.fetch_channel(DEBUG_CHANNEL_ID)
+        except Exception as e:
+            print(f"[send_debug_msg] fetch_channel failed: {e}")
+            return
+    try:
+        await ch.send(message)
+    except Exception as e:
+        print(f"[send_debug_msg] send failed: {e}")
 
 def is_admin(user_id, guild=None, check_global=False):
     uid_str = str(user_id)
