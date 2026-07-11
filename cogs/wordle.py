@@ -119,6 +119,169 @@ class WordleCog(commands.Cog):
                     pass
             return
 
+        # ── .wordle secrethelp [info] ──
+        if mode_or_option and mode_or_option.lower().strip() == "secrethelp":
+            stats = load_stats()
+            gid_str = str(ctx.guild.id)
+            uid_str = str(ctx.author.id)
+            trusted_pool = stats.get("trusted_users", {}).get(gid_str, [])
+            is_user_trusted = uid_str in trusted_pool
+            is_user_admin = is_admin(ctx.author.id, ctx.guild)
+            is_user_op = is_op(ctx.author.id)
+
+            if not (is_user_trusted or is_user_admin or is_user_op):
+                return
+
+            pfx = stats.get("prefix", ".")
+            show_info = category and category.lower().strip() == "info"
+
+            # Channel @everyone visibility check
+            everyone_can_see = ctx.channel.permissions_for(ctx.guild.default_role).view_channel
+            public_warning = "\n⚠️ **This channel is PUBLIC** — @everyone can see this message!\n" if everyone_can_see else ""
+
+            # User's access level
+            if is_user_op:
+                level, level_color = "Op 🔵", 0x5865F2
+            elif is_user_admin:
+                level, level_color = "Admin 🔴", 0xED4245
+            else:
+                level, level_color = "Trusted 🟡", 0xFEE75C
+
+            if not show_info:
+                embed = discord.Embed(
+                    title="🔐 Secret Help — Command Reference",
+                    description=f"{public_warning}Your access level: **{level}**",
+                    color=level_color
+                )
+
+                embed.add_field(name="🟡 Trusted", value=(
+                    f"`/say` — Send a message as the bot\n"
+                    f"`/autoresponder` — Manage server autoresponders\n"
+                    f"`{pfx}wordle mode <cat> <diff>` — Category wordle"
+                ), inline=False)
+
+                if is_user_admin or is_user_op:
+                    embed.add_field(name="🔴 Admin", value=(
+                        f"`{pfx}wordle end` / `/wordle end` — End active wordle (this server)\n"
+                        f"`{pfx}eg [server]` / `/endgame` — Force-end active game(s)\n"
+                        f"`{pfx}hint` — Reveal a hint letter\n"
+                        f"`{pfx}reveal` / `/reveal` — Reveal the secret word\n"
+                        f"`{pfx}give trusted <@user>` — Grant trusted access\n"
+                        f"`{pfx}give admin <@user>` — Grant admin access globally\n"
+                        f"`{pfx}give iw <@user> add` — Give infinite wordle\n"
+                        f"`{pfx}give rwordle <@user>` — Reset a user's daily limit\n"
+                        f"`{pfx}access` — Reset ALL daily limits\n"
+                        f"`{pfx}bllserver [ID]` — Blacklist/unblacklist server\n"
+                        f"`{pfx}maintenance` / `/maintenance` — Toggle maintenance mode"
+                    ), inline=False)
+
+                if is_user_op:
+                    embed.add_field(name="🔵 Op", value=(
+                        f"`{pfx}give op <@user>` — Grant Operator access globally\n"
+                        f"`{pfx}give trusted <@user> global` — Trusted across all servers\n"
+                        f"`{pfx}eg global` / `/endgame global` — End ALL games globally\n"
+                        f"`{pfx}leave <serverID>` — Leave a specific server\n"
+                        f"`{pfx}leave all` — Leave all servers\n"
+                        f"`{pfx}leave server list` — List servers the bot is in\n"
+                        f"`{pfx}debugtest <label>` — Test debug channel\n"
+                        f"`{pfx}wordle edit <word> [guildID]` — Edit active game word (debug ch only)"
+                    ), inline=False)
+
+                embed.set_footer(text=f"Use {pfx}wordle secrethelp info for detailed examples")
+
+            else:
+                embed = discord.Embed(
+                    title="🔐 Secret Help — Detailed Info",
+                    description=f"{public_warning}Your access level: **{level}**",
+                    color=level_color
+                )
+
+                embed.add_field(name="🟡 /say", value=(
+                    "Send a message as the bot to any channel.\n"
+                    "**Example:** `/say message:Hello! channel:#general`\n"
+                    "• Add `user:@someone` to send as a webhook clone of that user\n"
+                    "• Add `message_id:` to reply to a message\n"
+                    "**Access:** Trusted, Admin, Op"
+                ), inline=False)
+
+                embed.add_field(name="🟡 /autoresponder", value=(
+                    "Create or manage automatic responses to messages.\n"
+                    "**Example:** `/autoresponder action:add trigger:hello reply:Hi there!`\n"
+                    "• Supports `contains`, `exact`, `startswith`, `endswith` match modes\n"
+                    "• Global scope requires Admin+\n"
+                    "**Access:** Trusted, Admin, Op"
+                ), inline=False)
+
+                embed.add_field(name=f"🟡 {pfx}wordle mode", value=(
+                    "Start a wordle from a specific word category.\n"
+                    f"**Example:** `{pfx}wordle mode meme easy`\n"
+                    "• Category and difficulty must exist in `wordlecategories.json`\n"
+                    "**Access:** Trusted, Admin, Op"
+                ), inline=False)
+
+                if is_user_admin or is_user_op:
+                    embed.add_field(name=f"🔴 {pfx}wordle end / /wordle end", value=(
+                        "Force-end the active wordle game in this server.\n"
+                        f"**Example:** `{pfx}wordle end` or `/wordle word:end`\n"
+                        "**Access:** Admin, Op (or Discord Administrator)"
+                    ), inline=False)
+
+                    embed.add_field(name=f"🔴 {pfx}eg / /endgame", value=(
+                        "Force-end game(s) in the server.\n"
+                        f"**Example:** `{pfx}eg server` or `/endgame scope:server`\n"
+                        "• Use `global` scope (Op only) to end all games everywhere\n"
+                        "**Access:** Admin, Op"
+                    ), inline=False)
+
+                    embed.add_field(name=f"🔴 {pfx}hint / {pfx}reveal / /reveal", value=(
+                        f"`{pfx}hint` — Reveals a random letter from the current secret word\n"
+                        f"`{pfx}reveal` / `/reveal` — Reveals the full secret word (also works in 1v1)\n"
+                        "**Access:** Admin, Op"
+                    ), inline=False)
+
+                    embed.add_field(name=f"🔴 {pfx}give", value=(
+                        "Manage user access levels.\n"
+                        f"• `{pfx}give trusted <@user>` — Add/remove trusted in this server\n"
+                        f"• `{pfx}give admin <@user>` — Add/remove global admin\n"
+                        f"• `{pfx}give iw <@user> add/remove` — Infinite wordle toggle\n"
+                        f"• `{pfx}give rwordle <@user>` — Reset daily wordle limit\n"
+                        "**Access:** Admin+ (op required for `give op` and `trusted global`)"
+                    ), inline=False)
+
+                    embed.add_field(name=f"🔴 {pfx}access / {pfx}bllserver / {pfx}maintenance", value=(
+                        f"`{pfx}access` — Reset ALL user wordle limits globally\n"
+                        f"`{pfx}bllserver [serverID]` — Blacklist/unblacklist a server\n"
+                        f"`{pfx}maintenance` / `/maintenance` — Toggle bot maintenance mode\n"
+                        "**Access:** Admin, Op"
+                    ), inline=False)
+
+                if is_user_op:
+                    embed.add_field(name=f"🔵 {pfx}give op / trusted global", value=(
+                        "Manage top-level permissions.\n"
+                        f"• `{pfx}give op <@user>` — Grant/revoke Operator (top tier)\n"
+                        f"• `{pfx}give trusted <@user> global` — Trusted in all servers\n"
+                        "**Access:** Op only"
+                    ), inline=False)
+
+                    embed.add_field(name=f"🔵 {pfx}leave", value=(
+                        "Manage which servers the bot is in.\n"
+                        f"• `{pfx}leave <serverID>` — Leave a specific server\n"
+                        f"• `{pfx}leave all` — Leave ALL servers\n"
+                        f"• `{pfx}leave server list` — Paginated list of all servers\n"
+                        "**Access:** Op only"
+                    ), inline=False)
+
+                    embed.add_field(name=f"🔵 {pfx}debugtest / {pfx}wordle edit", value=(
+                        f"`{pfx}debugtest <label>` — Send a test message to the debug channel\n"
+                        f"`{pfx}wordle edit <word> [guildID]` — Change active game's secret word (debug channel only)\n"
+                        "**Access:** Op only"
+                    ), inline=False)
+
+                embed.set_footer(text=f"Use {pfx}wordle secrethelp for the quick command list")
+
+            await ctx.send(embed=embed)
+            return
+
         secret_word = None
         if mode_or_option and mode_or_option.lower().strip() == "mode":
             stats = load_stats()
