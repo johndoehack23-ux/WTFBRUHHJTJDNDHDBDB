@@ -77,6 +77,7 @@ class AdminCog(commands.Cog):
                     await ctx.send(f"Successfully reset and removed limits for user ID `{target_uid}`.")
                 else:
                     await ctx.send(f"Successfully reset daily wordle uses for user ID `{target_uid}`.")
+                await send_debug_msg(self.bot, f"♻️ `.give rwordle` | {ctx.author} (`{ctx.author.id}`) reset wordle limits for `{target_uid}` | {ctx.guild.name}")
             else:
                 await ctx.send("...")
             return
@@ -108,11 +109,12 @@ class AdminCog(commands.Cog):
             if is_remove_action:
                 if target_uid == "1465295674768883889":
                     return await ctx.send("❌ Error: Total master root ID protection locked. Cannot remove creator.")
-                
+
                 if target_uid in user_pool:
                     user_pool.remove(target_uid)
                     save_stats(stats)
                     await ctx.send("Successfully removed")
+                    await send_debug_msg(self.bot, f"🔑 `.give {sub_action} remove` | {ctx.author} (`{ctx.author.id}`) removed `{target_uid}` from **{sub_action}** list | {ctx.guild.name}")
                 else:
                     await ctx.send(f"Not in the global {sub_action} list")
             else:
@@ -120,10 +122,12 @@ class AdminCog(commands.Cog):
                     user_pool.remove(target_uid)
                     save_stats(stats)
                     await ctx.send("Successfully removed")
+                    await send_debug_msg(self.bot, f"🔑 `.give {sub_action} remove` | {ctx.author} (`{ctx.author.id}`) removed `{target_uid}` from **{sub_action}** list | {ctx.guild.name}")
                 else:
                     user_pool.append(target_uid)
                     save_stats(stats)
                     await ctx.send(f"Successfully added as {sub_action} globally")
+                    await send_debug_msg(self.bot, f"🔑 `.give {sub_action} add` | {ctx.author} (`{ctx.author.id}`) added `{target_uid}` as **{sub_action}** globally | {ctx.guild.name}")
             return
 
         # === SERVER-SPECIFIC OR GLOBAL MANAGEMENT (trusted) ===
@@ -163,6 +167,7 @@ class AdminCog(commands.Cog):
                     save_stats(stats)
                     if removed_from:
                         await ctx.send(f"Successfully removed from trusted globally ({len(removed_from)} server(s)).")
+                        await send_debug_msg(self.bot, f"🔑 `.give trusted global remove` | {ctx.author} (`{ctx.author.id}`) removed `{target_uid}` from trusted in {len(removed_from)} server(s)")
                     else:
                         await ctx.send("Not found in any trusted list globally.")
                 else:
@@ -182,6 +187,7 @@ class AdminCog(commands.Cog):
                         added_to += 1
                     save_stats(stats)
                     await ctx.send(f"Successfully added as trusted globally ({added_to} server(s)).")
+                    await send_debug_msg(self.bot, f"🔑 `.give trusted global add` | {ctx.author} (`{ctx.author.id}`) added `{target_uid}` as trusted in {added_to} server(s)")
             else:
                 # Server scope (default)
                 gid_str = str(ctx.guild.id)
@@ -194,6 +200,7 @@ class AdminCog(commands.Cog):
                         user_pool.remove(target_uid)
                         save_stats(stats)
                         await ctx.send("Successfully removed from trusted (this server).")
+                        await send_debug_msg(self.bot, f"🔑 `.give trusted server remove` | {ctx.author} (`{ctx.author.id}`) removed `{target_uid}` from trusted | {ctx.guild.name} (`{ctx.guild.id}`)")
                     else:
                         await ctx.send("Not in the trusted list for this server.")
                 else:
@@ -201,6 +208,7 @@ class AdminCog(commands.Cog):
                         user_pool.append(target_uid)
                         save_stats(stats)
                         await ctx.send("Successfully added as trusted (this server).")
+                        await send_debug_msg(self.bot, f"🔑 `.give trusted server add` | {ctx.author} (`{ctx.author.id}`) added `{target_uid}` as trusted | {ctx.guild.name} (`{ctx.guild.id}`)")
                     else:
                         await ctx.send("Already in the trusted list for this server.")
         else:
