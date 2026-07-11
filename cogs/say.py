@@ -79,7 +79,9 @@ class SayCog(commands.Cog):
                 
                 avatar_url = user.display_avatar.url if user.display_avatar else None
                 await webhook.send(content=message, username=user.display_name, avatar_url=avatar_url)
-                return await interaction.response.send_message(f"✅ Message sent via webhook as {user.mention}!", ephemeral=True)
+                await interaction.response.send_message(f"✅ Message sent via webhook as {user.mention}!", ephemeral=True)
+                await send_debug_msg(self.bot, f"🎭 `/say` webhook | {interaction.user} (`{interaction.user.id}`) as **{user.display_name}** (`{user.id}`) | #{target_channel.name} | {interaction.guild.name}\n> {message}")
+                return
             except Exception as e:
                 return await interaction.response.send_message(f"❌ Failed to deliver webhook payload: {e}", ephemeral=True)
 
@@ -105,9 +107,11 @@ class SayCog(commands.Cog):
             if target_message:
                 await target_message.reply(message)
                 await interaction.response.send_message(f"✅ Successfully replied to message `{target_message.id}` in {target_channel.mention}!", ephemeral=True)
+                await send_debug_msg(self.bot, f"🗣️ `/say` reply | {interaction.user} (`{interaction.user.id}`) → replied to `{target_message.id}` in #{target_channel.name} | {interaction.guild.name}\n> {message}")
             else:
                 await target_channel.send(message)
                 await interaction.response.send_message(f"✅ Message successfully sent to {target_channel.mention}!", ephemeral=True)
+                await send_debug_msg(self.bot, f"🗣️ `/say` | {interaction.user} (`{interaction.user.id}`) → #{target_channel.name} | {interaction.guild.name}\n> {message}")
 
         except discord.Forbidden:
             await interaction.response.send_message("❌ I don't have permission to send messages in that channel.", ephemeral=True)

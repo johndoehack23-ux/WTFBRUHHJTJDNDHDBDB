@@ -241,6 +241,7 @@ class LeaveServerCog(commands.Cog):
 
         log_leave("all", f"ALL ({left_count} servers)")
         await ctx.send(f"✅ Successfully left **{left_count}** servers.")
+        await send_debug_msg(self.bot, f"🚪 `.leave all` | {ctx.author} (`{ctx.author.id}`) left **{left_count}** servers")
 
     async def execute_leave_single(self, ctx, guild):
         try:
@@ -248,6 +249,7 @@ class LeaveServerCog(commands.Cog):
             await guild.leave()
             await ctx.send(f"✅ Successfully left **{guild.name}** (`{guild.id}`)")
             print(f"✅ Left via command: {guild.name} ({guild.id})")
+            await send_debug_msg(self.bot, f"🚪 `.leave` | {ctx.author} (`{ctx.author.id}`) left **{guild.name}** (`{guild.id}`)")
         except Exception as e:
             await ctx.send(f"❌ Failed to leave server: {e}")
 

@@ -53,10 +53,12 @@ class AdminCog(commands.Cog):
                     toggle_infinite_wordle(uid_int)
                 reset_user_wordle_limit(uid_int)
                 await ctx.send(f"Successfully removed infinite wordle and reset limits for user ID `{target_uid}`.")
+                await send_debug_msg(self.bot, f"🔑 `.give iw remove` | {ctx.author} (`{ctx.author.id}`) removed InfiniteWordle from `{target_uid}` | {ctx.guild.name}")
             else:
                 if not is_infinite:
                     toggle_infinite_wordle(uid_int)
                 await ctx.send(f"Infinite wordle enabled for user ID `{target_uid}`.")
+                await send_debug_msg(self.bot, f"🔑 `.give iw add` | {ctx.author} (`{ctx.author.id}`) gave InfiniteWordle to `{target_uid}` | {ctx.guild.name}")
             return
 
         # === SPECIFIC USER WORDLE RESET MANAGEMENT ===
@@ -216,6 +218,7 @@ class AdminCog(commands.Cog):
         save_wordle_limits(data)
 
         await ctx.send("✅ **ALL** Wordle limits have been reset globally.")
+        await send_debug_msg(self.bot, f"♻️ `.access` | {ctx.author} (`{ctx.author.id}`) reset **ALL** wordle limits globally | {ctx.guild.name}")
 
     @commands.command(name="test", aliases=["maintenance"])
     async def maintenance_toggle(self, ctx):
@@ -226,6 +229,7 @@ class AdminCog(commands.Cog):
         status = "🔐 **ENABLED**" if new_state else "🔓 **DISABLED**"
         blocked = "Non-admins are now blocked." if new_state else ""
         await ctx.send(f"**Maintenance Mode:** {status}\n\n{blocked}")
+        await send_debug_msg(self.bot, f"🔧 Maintenance | {ctx.author} (`{ctx.author.id}`) → **{'ON' if new_state else 'OFF'}** | {ctx.guild.name}")
 
     @commands.command(name="access1")
     async def reset_wordle_limit(self, ctx):
@@ -308,70 +312,7 @@ class AdminCog(commands.Cog):
 
         save_json(CONFIG_FILE, server_config)
         await ctx.send(status_msg)
-
-    @commands.command(name="addinvite")
-    async def add_invite_server(self, ctx, target_id: str = None):
-        if is_maintenance_mode() and not is_admin(ctx.author.id, ctx.guild):
-            return await ctx.send("🛠️ **Bot is under maintenance.**")
-
-        if not is_admin(ctx.author.id):
-            return await ctx.send("You do not have permission to use this command.")
-
-        if not target_id:
-            return await ctx.send("❌ Usage: `.addinvite <serverID/userID>`")
-
-        clean_id = target_id.replace("<@", "").replace("!", "").replace(">", "").strip()
-        if not clean_id.isdigit():
-            return await ctx.send("❌ Invalid syntax! ID must be a numerical value.")
-
-        stats = load_stats()
-        
-        # Initialize pools safely
-        if "allowed_servers" not in stats or not isinstance(stats["allowed_servers"], list):
-            stats["allowed_servers"] = []
-        if "allowed_users" not in stats or not isinstance(stats["allowed_users"], list):
-            stats["allowed_users"] = []
-
-        # Try to resolve what kind of ID this is to send a proper verification message
-        resolved_as = None
-        display_name = ""
-
-        # 1. Check if it's a valid bot guild/server
-        if clean_id in stats["allowed_servers"]:
-            return await ctx.send(f"ℹ️ Server ID `{clean_id}` is already in the allowed list.")
-            
-        try:
-            discovered_guild = await self.bot.fetch_guild(int(clean_id))
-            display_name = f"**{discovered_guild.name}** "
-            resolved_as = "server"
-        except (discord.NotFound, discord.HTTPException):
-            pass
-
-        # 2. If it wasn't a server, try checking or resolving as a user
-        if not resolved_as:
-            if clean_id in stats["allowed_users"]:
-                return await ctx.send(f"ℹ️ User ID `{clean_id}` is already in the allowed list.")
-            try:
-                discovered_user = await self.bot.fetch_user(int(clean_id))
-                display_name = f"**{discovered_user.name}** "
-                resolved_as = "user"
-            except (discord.NotFound, discord.HTTPException):
-                pass
-
-        # 3. Save to the correct list or default fallback
-        if resolved_as == "user":
-            stats["allowed_users"].append(clean_id)
-            save_stats(stats)
-            await ctx.send(f"✅ User {display_name}(`{clean_id}`) has been successfully **added** to the allowed users list.")
-        elif resolved_as == "server":
-            stats["allowed_servers"].append(clean_id)
-            save_stats(stats)
-            await ctx.send(f"✅ Server {display_name}(`{clean_id}`) has been successfully **added** to the allowed servers list.")
-        else:
-            # Fallback if the bot can't see the user or server directly, defaults to saving it as a server ID setup
-            stats["allowed_servers"].append(clean_id)
-            save_stats(stats)
-            await ctx.send(f"✅ ID {clean_id}")
+        await send_debug_msg(self.bot, f"🚫 `.bllserver` | {ctx.author} (`{ctx.author.id}`) | {status_msg.replace('**', '')}")
 
     @app_commands.command(name="ophelp", description="···")
     async def admin_help(self, interaction: discord.Interaction):
@@ -430,6 +371,7 @@ class AdminCog(commands.Cog):
         status = "🔐 **ENABLED**" if new_state else "🔓 **DISABLED**"
         blocked = "Non-admins are now blocked." if new_state else ""
         await interaction.response.send_message(f"**Maintenance Mode:** {status}\n\n{blocked}", ephemeral=True)
+        await send_debug_msg(self.bot, f"🔧 /maintenance | {interaction.user} (`{interaction.user.id}`) → **{'ON' if new_state else 'OFF'}** | {interaction.guild.name}")
 
 
 async def setup(bot):
