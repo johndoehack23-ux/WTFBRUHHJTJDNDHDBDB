@@ -1,0 +1,27 @@
+{
+    "next_id": 3,
+    "cases": {
+        "1503365316065890364": [
+            {
+                "id": 1,
+                "action": "warned",
+                "target_id": 1405982225442275509,
+                "target_name": "deathgotglitched",
+                "moderator_id": 1465295674768883889,
+                "moderator_name": "iamninjaau",
+                "reason": "50m",
+                "extra": null
+            },
+            {
+                "id": 2,
+                "action": "warned",
+                "target_id": 1503267385619124375,
+                "target_name": "sygau66",
+                "moderator_id": 1465295674768883889,
+                "moderator_name": "iamninjaau",
+                "reason": "No reason provided.",
+                "extra": null
+            }
+        ]
+    }
+}
