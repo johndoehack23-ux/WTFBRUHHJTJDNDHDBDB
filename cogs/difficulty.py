@@ -29,6 +29,10 @@ class DifficultyCog(commands.Cog):
         save_json(CONFIG_FILE, server_config)
 
         await ctx.send(f"✅ Default mode set to **{mode.upper()}**")
+        await send_debug_msg(
+            self.bot,
+            f"⚙️ `.difficulty` | {ctx.author} (`{ctx.author.id}`) set difficulty → **{mode.upper()}** | {ctx.guild.name}"
+        )
 
     @app_commands.command(name="difficulty", description="Set the default wordle difficulty for this server")
     @app_commands.describe(mode="easy | medium | hard | impossible | default")
@@ -51,6 +55,10 @@ class DifficultyCog(commands.Cog):
         save_json(CONFIG_FILE, server_config)
 
         await interaction.response.send_message(f"✅ Default mode set to **{mode.upper()}**", ephemeral=True)
+        await send_debug_msg(
+            self.bot,
+            f"⚙️ `/difficulty` | {interaction.user} (`{interaction.user.id}`) set difficulty → **{mode.upper()}** | {interaction.guild.name}"
+        )
 
 
 async def setup(bot):

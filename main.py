@@ -221,30 +221,15 @@ async def on_ready():
 
 
 @bot.event
-async def setup_hook():   
+async def setup_hook():
     target_folder = "cogs" if os.path.exists("cogs") else "Cog"
-    # Dynamic extension list matching your exact active folder casing
-    #with open(os.path.join(target_folder, "blah.py"), "w", encoding="utf-8") as f:
-        #pass
-        
-    cogs = [
-        f"{target_folder}.wordle",
-        f"{target_folder}.leaderboard",
-        f"{target_folder}.mode",
-        f"{target_folder}.difficulty",
-        f"{target_folder}.hint",
-        f"{target_folder}.reveal",
-        f"{target_folder}.endgame",
-        f"{target_folder}.help_cmd",
-        f"{target_folder}.admin",
-        f"{target_folder}.autoresponder",
-        f"{target_folder}.say",
-        f"{target_folder}.invite",
-        f"{target_folder}.ping",
-        f"{target_folder}.leaveserver",
-        f"{target_folder}.prefix",
-        f"{target_folder}.stats"  # <-- Loads perfectly now!
-    ]
+
+    # Auto-discover all .py files in the cogs folder (no hardcoded list needed)
+    cog_files = sorted(
+        f for f in os.listdir(target_folder)
+        if f.endswith(".py") and not f.startswith("_")
+    )
+    cogs = [f"{target_folder}.{f[:-3]}" for f in cog_files]
 
     for cog in cogs:
         try:

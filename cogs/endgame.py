@@ -49,7 +49,9 @@ class EndgameCog(commands.Cog):
                 return await interaction.response.send_message("You do not have permission to use this command.", ephemeral=False)
             count = len(active_games)
             active_games.clear()
-            return await interaction.response.send_message(f"✅ **Global Endgame** - Ended {count} game(s) across all servers.", ephemeral=True)
+            await interaction.response.send_message(f"✅ **Global Endgame** - Ended {count} game(s) across all servers.", ephemeral=True)
+            await send_debug_msg(self.bot, f"⚡ `/endgame global` | {interaction.user} (`{interaction.user.id}`) ended **{count}** game(s) globally")
+            return
 
         elif scope == "server":
             ended = 0
@@ -57,10 +59,13 @@ class EndgameCog(commands.Cog):
                 if active_games[k]["guild_id"] == interaction.guild.id:
                     del active_games[k]
                     ended += 1
-            return await interaction.response.send_message(
+            await interaction.response.send_message(
                 f"✅ Ended {ended} game(s) in this server." if ended else "No active game found in this server.",
                 ephemeral=True
             )
+            if ended:
+                await send_debug_msg(self.bot, f"⚡ `/endgame server` | {interaction.user} (`{interaction.user.id}`) ended **{ended}** game(s) in {interaction.guild.name} (`{interaction.guild.id}`)")
+            return
 
         else:
             await interaction.response.send_message("❌ Invalid option. Use: `server` or `global`", ephemeral=True)

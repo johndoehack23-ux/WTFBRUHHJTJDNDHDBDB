@@ -434,13 +434,30 @@ class WordleCog(commands.Cog):
                 if not (is_admin(interaction.user.id, interaction.guild) or has_admin(interaction.user, interaction.guild)):
                     return await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
 
+                keys_to_end = [
+                    k for k, g in active_games.items()
+                    if isinstance(g, dict) and g.get("guild_id") == interaction.guild.id
+                ]
                 ended = 0
-                for k in list(active_games.keys()):
-                    if isinstance(active_games[k], dict) and active_games[k].get("guild_id") == interaction.guild.id:
-                        del active_games[k]
-                        ended += 1
+                for k in keys_to_end:
+                    if k not in active_games:
+                        continue
+                    game = active_games[k]
+                    debug_msg_id = game.get("debug_msg_id")
+                    debug_ch_id = game.get("debug_msg_channel_id")
+                    if debug_msg_id and debug_ch_id:
+                        try:
+                            debug_ch = self.bot.get_channel(debug_ch_id) or await self.bot.fetch_channel(debug_ch_id)
+                            dm = await debug_ch.fetch_message(debug_msg_id)
+                            await dm.delete()
+                        except Exception:
+                            pass
+                    del active_games[k]
+                    ended += 1
+
                 if ended:
-                    return await interaction.response.send_message("Wordle ended", ephemeral=False)
+                    await send_debug_msg(self.bot, f"⚡ `/wordle end` | {interaction.user} (`{interaction.user.id}`) ended **{ended}** game(s) | {interaction.guild.name}")
+                    return await interaction.response.send_message(f"Wordle ended ({ended} game(s))", ephemeral=False)
                 else:
                     return await interaction.response.send_message("Wordle hasn't been started.", ephemeral=True)
 

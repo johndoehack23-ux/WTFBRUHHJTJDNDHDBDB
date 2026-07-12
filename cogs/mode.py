@@ -15,15 +15,10 @@ def weighted_pick_two(users: list, recent_ids: set):
     Returns (p1, p2).
     """
     weights = [0.2 if u.id in recent_ids else 1.0 for u in users]
-
-    # Pick first
     p1 = random.choices(users, weights=weights, k=1)[0]
-
-    # Remove p1 from pool and pick second
     remaining = [u for u in users if u.id != p1.id]
     remaining_weights = [0.2 if u.id in recent_ids else 1.0 for u in remaining]
     p2 = random.choices(remaining, weights=remaining_weights, k=1)[0]
-
     return p1, p2
 
 
@@ -44,13 +39,18 @@ class ModeCog(commands.Cog):
             f"**Round {match['current_round']}/{match['max_rounds']}** | **Length:** {length}\n"
             f"**{match['p1']['name']}** vs **{match['p2']['name']}** — Guess the word!"
         )
+        await send_debug_msg(
+            self.bot,
+            f"🥊 **1v1 Round {match['current_round']}** | `{word}` (len {length}) | "
+            f"**{match['p1']['name']}** vs **{match['p2']['name']}** | #{channel.name}"
+        )
 
     async def end_1v1_match(self, channel, channel_id):
         if channel_id in active_1v1_matches:
             del active_1v1_matches[channel_id]
 
     async def _launch_match(self, ctx, channel_id, p1, p2, length):
-        """Shared logic: register match, send announcement, debug log, start first round."""
+        """Shared logic: register match, announce, debug log, start first round."""
         active_1v1_matches[channel_id] = {
             "p1": {"id": p1.id, "name": p1.display_name, "score": 0, "wins": 0},
             "p2": {"id": p2.id, "name": p2.display_name, "score": 0, "wins": 0},
@@ -61,8 +61,6 @@ class ModeCog(commands.Cog):
             "secret": None,
             "guessed": False
         }
-
-        # Mark both players as recent for this guild
         _1v1_recent[ctx.guild.id] = {p1.id, p2.id}
 
         await ctx.send(
@@ -72,25 +70,29 @@ class ModeCog(commands.Cog):
         )
         await send_debug_msg(
             self.bot,
-            f"🥊 **1v1 started** | **{p1.display_name}** (`{p1.id}`) vs **{p2.display_name}** (`{p2.id}`) "
-            f"| #{ctx.channel.name} | {ctx.guild.name} (`{ctx.guild.id}`)"
+            f"🥊 **1v1 match started** | **{p1.display_name}** (`{p1.id}`) vs "
+            f"**{p2.display_name}** (`{p2.id}`) | #{ctx.channel.name} | {ctx.guild.name}"
         )
         await self.start_1v1_round(ctx.channel, channel_id)
 
     @commands.command(name="mode")
-    async def mode_1v1(self, ctx, mode: str = None, arg1: str = None, arg2: str = None):
+    async def mode_1v1(self, ctx, mode: str = None, arg1: str = None, arg2: str = None, arg3: str = None):
         if is_server_blacklisted(ctx.guild.id):
             return
 
         if is_maintenance_mode() and not is_admin(ctx.author.id):
             return await ctx.send("🛠️ **Bot is under maintenance.**")
 
+        # Admin or Op required for all mode sub-commands
+        if not (is_admin(ctx.author.id, ctx.guild) or is_op(ctx.author.id)):
+            return await ctx.send("You do not have permission to use this command.")
+
         if not mode:
             return await ctx.send(
                 "✅ Usage:\n"
                 "`.mode 1v1` — Random matchmaking\n"
                 "`.mode 1v1 <length>` — Matchmaking with word length\n"
-                "`.mode 1v1 <@user1> <@user2>` — Force 1v1 two specific players\n"
+                "`.mode 1v1 <@user1> <@user2> [length]` — Force 1v1 two specific players\n"
                 "`.mode end` — Force-end the active 1v1"
             )
 
@@ -99,9 +101,6 @@ class ModeCog(commands.Cog):
 
         # ── END ──
         if mode_action == "end":
-            if not is_admin(ctx.author.id):
-                return await ctx.send("You do not have permission to use this command.")
-
             ended_something = False
 
             if channel_id in active_1v1_lobbies:
@@ -125,17 +124,16 @@ class ModeCog(commands.Cog):
             return
 
         if mode_action != "1v1":
-            return await ctx.send("Usage: `.mode 1v1`, `.mode 1v1 <length>`, or `.mode 1v1 <@user1> <@user2>`")
+            return await ctx.send("Usage: `.mode 1v1`, `.mode 1v1 <length>`, or `.mode 1v1 <@user1> <@user2> [length]`")
 
         if channel_id in active_games or channel_id in active_1v1_lobbies or channel_id in active_1v1_matches:
             return await ctx.send("❌ A game or lobby is already active in this channel!")
 
-        # ── FORCE 1v1: .mode 1v1 <userID1/mention> <userID2/mention> ──
+        # ── FORCE 1v1: .mode 1v1 <userID1/mention> <userID2/mention> [length] ──
         if arg1 and arg2:
             uid1 = arg1.replace("<@", "").replace("!", "").replace(">", "").strip()
             uid2 = arg2.replace("<@", "").replace("!", "").replace(">", "").strip()
 
-            # Treat as user IDs if both are long digit strings (Discord IDs are 17-19 digits)
             if uid1.isdigit() and uid2.isdigit() and len(uid1) >= 15 and len(uid2) >= 15:
                 try:
                     member1 = ctx.guild.get_member(int(uid1)) or await ctx.guild.fetch_member(int(uid1))
@@ -148,8 +146,14 @@ class ModeCog(commands.Cog):
                 if member1.id == member2.id:
                     return await ctx.send("❌ Cannot 1v1 the same user twice.")
 
-                await ctx.send(f"🔥 **Force 1v1!** {member1.mention} vs {member2.mention}")
-                await self._launch_match(ctx, channel_id, member1, member2, None)
+                # Optional length from arg3 (or leftover arg2 position if arg3 has it)
+                force_length = None
+                if arg3 and arg3.isdigit() and len(arg3) <= 4:
+                    force_length = int(arg3)
+
+                await ctx.send(f"🔥 **Force 1v1!** {member1.mention} vs {member2.mention}" +
+                               (f" | Length: **{force_length}**" if force_length else " | Length: **random**"))
+                await self._launch_match(ctx, channel_id, member1, member2, force_length)
                 return
 
         # ── RANDOM MATCHMAKING with optional length ──
@@ -174,7 +178,7 @@ class ModeCog(commands.Cog):
             inline=False
         )
         if recent_ids:
-            embed.set_footer(text="⚠️ Players from the last match have a lower chance of being re-selected.")
+            embed.set_footer(text="⚠️ Players from the last match have a lower re-selection chance.")
 
         lobby_msg = await ctx.send(embed=embed)
         await lobby_msg.add_reaction("🔥")

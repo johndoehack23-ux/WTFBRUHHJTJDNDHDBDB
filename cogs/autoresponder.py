@@ -91,6 +91,7 @@ class AutoresponderCog(commands.Cog):
             )
             global_label = " 🌐 [GLOBAL]" if is_global else ""
             await interaction.response.send_message(f"✅ Autoresponder added{global_label} for: `{trigger}`", ephemeral=True)
+            await send_debug_msg(self.bot, f"🤖 `/autoresponder add`{global_label} | {interaction.user} (`{interaction.user.id}`) added trigger `{trigger}` → `{reply}` | {interaction.guild.name}")
 
         elif action == "edit":
             if not trigger:
@@ -103,6 +104,7 @@ class AutoresponderCog(commands.Cog):
 
             edit_auto_response(trigger, new_trigger, reply, matchmode, react, channel_id, cooldown, global_server)
             await interaction.response.send_message(f"✅ Updated autoresponder setup: `{trigger}`", ephemeral=True)
+            await send_debug_msg(self.bot, f"🤖 `/autoresponder edit` | {interaction.user} (`{interaction.user.id}`) edited trigger `{trigger}` | {interaction.guild.name}")
 
         else:
             await interaction.response.send_message("Use: `add | edit` (To view list, use `.showresponders`)", ephemeral=True)
@@ -148,15 +150,19 @@ class AutoresponderCog(commands.Cog):
             if not is_admin(interaction.user.id, interaction.guild, check_global=True):
                 return await interaction.response.send_message("❌ You do not have permission to use this command.", ephemeral=True)
             remove_auto_response(target_trigger)
-            return await interaction.response.send_message(f"🗑️ Global Autoresponder `{trigger}` completely removed.", ephemeral=True)
+            await interaction.response.send_message(f"🗑️ Global Autoresponder `{trigger}` completely removed.", ephemeral=True)
+            await send_debug_msg(self.bot, f"🗑️ `/deleteautoresponder` 🌐 [GLOBAL] | {interaction.user} (`{interaction.user.id}`) deleted trigger `{trigger}` | {interaction.guild.name}")
+            return
         else:
             if item_guild and str(item_guild) != guild_id:
                 embed = discord.Embed(title=f"❌ Autoresponder for `{trigger}` not found on this server.", color=0xff4d4d)
                 embed.add_field(name="Current Server Autoresponders:", value=local_list_str, inline=False)
                 return await interaction.response.send_message(embed=embed, ephemeral=True)
-            
+
             remove_auto_response(target_trigger)
-            return await interaction.response.send_message(f"🗑️ Local Autoresponder `{trigger}` successfully removed.", ephemeral=True)
+            await interaction.response.send_message(f"🗑️ Local Autoresponder `{trigger}` successfully removed.", ephemeral=True)
+            await send_debug_msg(self.bot, f"🗑️ `/deleteautoresponder` | {interaction.user} (`{interaction.user.id}`) deleted trigger `{trigger}` | {interaction.guild.name}")
+            return
 
     @commands.command(name="showresponders")
     async def showresponders(self, ctx, scope: str = "server"):

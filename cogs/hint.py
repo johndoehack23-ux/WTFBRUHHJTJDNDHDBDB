@@ -26,7 +26,13 @@ class HintCog(commands.Cog):
 
         idx = random.choice(avail)
         g.setdefault("revealed_indices", []).append(idx)
-        await ctx.send(f"💡 Letter {idx+1} is **{g['secret'][idx].upper()}**")
+        letter = g['secret'][idx].upper()
+        await ctx.send(f"💡 Letter {idx+1} is **{letter}**")
+        await send_debug_msg(
+            self.bot,
+            f"💡 `.hint` | {ctx.author} (`{ctx.author.id}`) revealed letter {idx+1} = `{letter}` "
+            f"| #{ctx.channel.name} | {ctx.guild.name}"
+        )
 
 
 async def setup(bot):
