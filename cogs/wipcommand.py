@@ -1,12 +1,4 @@
 import discord
-import os
-from discord.ext import commands
-from discord import app_commands
-from functions import *
-
-WIP_FILE = "cogs/wipcommand.py"
-
-TEMPLATE = '''import discord
 from discord.ext import commands
 from discord import app_commands
 from functions import *
@@ -44,11 +36,15 @@ from functions import *
 #  Combined (AND — must satisfy all):
 #      Admin AND Op:           if not (is_adm and is_op_user): return ...
 #
+#  Guild Discord Administrator check (no bot list, just Discord perm):
+#      from cogs.wordle import has_admin
+#      if not has_admin(ctx.author, ctx.guild): return ...
+#
+#  Maintenance guard:
+#      if is_maintenance_mode() and not is_adm: return await ctx.send("🛠️ Maintenance.")
+#
 #  Debug log helper (respects debug_mode toggle):
 #      await send_debug_msg(bot, "Your message here")
-#
-#  Whato guard (blocks if server toggled off):
-#      if is_whato_disabled(str(ctx.guild.id)): return
 #
 # ════════════════════════════════════════════════════════════════
 
@@ -102,64 +98,3 @@ class WipCommandCog(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(WipCommandCog(bot))
-'''
-
-
-class AtcmdCog(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
-
-    @commands.command(name="addtemplatecommand", aliases=["atcmd"])
-    async def addtemplatecommand(self, ctx):
-        # Op-only
-        if not is_op(ctx.author.id):
-            return
-
-        already_exists = os.path.exists(WIP_FILE)
-
-        if already_exists:
-            return await ctx.send(
-                "⚠️ **Already created!** Please check and edit the code. Thanks!\n"
-                f"→ `{WIP_FILE}`"
-            )
-
-        try:
-            with open(WIP_FILE, "w", encoding="utf-8") as f:
-                f.write(TEMPLATE)
-        except Exception as e:
-            return await ctx.send(f"❌ Failed to create template: `{e}`")
-
-        # Auto-load without requiring a restart
-        load_note = ""
-        try:
-            await self.bot.load_extension("cogs.wipcommand")
-            await self.bot.tree.sync()
-            load_note = "\n✅ **Auto-loaded!** `.wipcommand` + `/wipcommand` are live right now — no restart needed."
-        except Exception as e:
-            load_note = f"\n⚠️ File created but auto-load failed (`{e}`). Restart to activate."
-
-        embed = discord.Embed(
-            title="✅ Template Command Created!",
-            description=(
-                f"**File:** `{WIP_FILE}`\n\n"
-                "**Next steps:**\n"
-                "1️⃣ Rename the file to `cogs/yourcommand.py`\n"
-                "2️⃣ Rename `WipCommandCog` → `YourCommandCog`\n"
-                "3️⃣ Rename both commands from `wipcommand` → your name\n"
-                "4️⃣ Uncomment the access control level you need\n"
-                "5️⃣ Bot auto-loads new cogs on restart — no code changes needed!\n\n"
-                "**Access levels in template:**\n"
-                "`Trusted` | `Admin` | `Op` | `Trusted OR Admin OR Op` | `Admin AND Op`"
-                + load_note
-            ),
-            color=0x57F287
-        )
-        await ctx.send(embed=embed)
-        await send_debug_msg(
-            self.bot,
-            f"📝 `.atcmd` | {ctx.author} (`{ctx.author.id}`) created `wipcommand.py` template | {ctx.guild.name}"
-        )
-
-
-async def setup(bot):
-    await bot.add_cog(AtcmdCog(bot))

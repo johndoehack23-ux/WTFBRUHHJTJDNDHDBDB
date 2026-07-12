@@ -270,6 +270,22 @@ async def global_prefix_blacklist_check(ctx: commands.Context):
         return False
     return True
 
+# Whato exempt commands — always allowed even when whato is toggled off
+_WHATO_EXEMPT = {"ping", "stats", "whato", "help", "debugtest"}
+
+@bot.check
+async def global_whato_check(ctx: commands.Context):
+    if ctx.guild is None:
+        return True
+    if ctx.command is None:
+        return True
+    if ctx.command.name in _WHATO_EXEMPT:
+        return True
+    if is_whato_disabled(str(ctx.guild.id)):
+        # silently block — no error message so it doesn't spam
+        return False
+    return True
+
 @bot.event
 async def on_message(message):
     if message.author.bot:

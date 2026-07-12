@@ -99,6 +99,11 @@ roles_data = load_json(ROLES_FILE, lambda: {"servers": {}})
 categories_data = load_json(CATEGORIES_FILE, lambda: {"servers": {}})
 emojis = load_json(EMOJI_FILE, lambda: {"correct": {}, "misplaced": {}, "wrong": {}})
 
+def is_whato_disabled(guild_id_str: str) -> bool:
+    """Returns True if bot commands are toggled off for this server."""
+    return server_config.get("whato_disabled", {}).get(str(guild_id_str), False)
+
+
 def is_server_blacklisted(guild_id):
     """
     Checks if a server ID is present within the global blacklist.
