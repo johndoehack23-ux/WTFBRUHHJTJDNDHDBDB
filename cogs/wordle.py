@@ -61,12 +61,31 @@ class WordleCog(commands.Cog):
             if not (is_admin(ctx.author.id, ctx.guild) or has_admin(ctx.author, ctx.guild)):
                 return await ctx.send("Denied Access.")
 
+            # Collect keys first to avoid mutating dict during iteration
+            keys_to_end = [
+                k for k, g in active_games.items()
+                if isinstance(g, dict) and g.get("guild_id") == ctx.guild.id
+            ]
             ended = 0
-            for k in list(active_games.keys()):
-                if isinstance(active_games[k], dict) and active_games[k].get("guild_id") == ctx.guild.id:
-                    del active_games[k]
-                    ended += 1
+            for k in keys_to_end:
+                if k not in active_games:
+                    continue
+                game = active_games[k]
+                # Delete the debug channel secret message for each ended game
+                debug_msg_id = game.get("debug_msg_id")
+                debug_ch_id = game.get("debug_msg_channel_id")
+                if debug_msg_id and debug_ch_id:
+                    try:
+                        debug_ch = self.bot.get_channel(debug_ch_id) or await self.bot.fetch_channel(debug_ch_id)
+                        dm = await debug_ch.fetch_message(debug_msg_id)
+                        await dm.delete()
+                    except Exception:
+                        pass
+                del active_games[k]
+                ended += 1
+
             if ended:
+                await send_debug_msg(self.bot, f"⚡ `.wordle end` | {ctx.author} (`{ctx.author.id}`) ended **{ended}** game(s) | {ctx.guild.name} (`{ctx.guild.id}`)")
                 return await ctx.send(f"Ended {ended} game(s) in this server.")
             else:
                 return await ctx.send("No active game found in this server.")
@@ -462,13 +481,15 @@ class WordleCog(commands.Cog):
                 practice_label = " [PRACTICE MODE]" if practice else ""
                 await target_channel.send(f"## New Wordle{practice_label} by <@{interaction.user.id}>\nLength: {len(word_clean)}")
 
-                if not practice and is_debug_mode():
+                if is_debug_mode():
                     debug_ch = await get_debug_channel(self.bot)
                     if debug_ch:
                         try:
-                            dm = await debug_ch.send(f"🔐 `{word_clean}` | {interaction.guild.id} ({interaction.guild.name})")
-                            active_games[game_key]["debug_msg_id"] = dm.id
-                            active_games[game_key]["debug_msg_channel_id"] = debug_ch.id
+                            label = "[PRACTICE] " if practice else ""
+                            dm = await debug_ch.send(f"🔐 {label}`{word_clean}` | {interaction.guild.id} ({interaction.guild.name})")
+                            if not practice:
+                                active_games[game_key]["debug_msg_id"] = dm.id
+                                active_games[game_key]["debug_msg_channel_id"] = debug_ch.id
                         except Exception as e:
                             print(f"[wordle slash custom debug send] {e}")
 
@@ -522,13 +543,15 @@ class WordleCog(commands.Cog):
             practice_label = " [PRACTICE MODE]" if practice else ""
             await resolved_channel.send(f"## New Wordle{practice_label} by <@{interaction.user.id}>\nLength: {len(secret)}")
 
-            if not practice and is_debug_mode():
+            if is_debug_mode():
                 debug_ch = await get_debug_channel(self.bot)
                 if debug_ch:
                     try:
-                        dm = await debug_ch.send(f"🔐 `{secret}` | {interaction.guild.id} ({interaction.guild.name})")
-                        active_games[game_key]["debug_msg_id"] = dm.id
-                        active_games[game_key]["debug_msg_channel_id"] = debug_ch.id
+                        label = "[PRACTICE] " if practice else ""
+                        dm = await debug_ch.send(f"🔐 {label}`{secret}` | {interaction.guild.id} ({interaction.guild.name})")
+                        if not practice:
+                            active_games[game_key]["debug_msg_id"] = dm.id
+                            active_games[game_key]["debug_msg_channel_id"] = debug_ch.id
                     except Exception as e:
                         print(f"[wordle slash random debug send] {e}")
 
