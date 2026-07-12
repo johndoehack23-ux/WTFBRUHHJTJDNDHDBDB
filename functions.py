@@ -137,16 +137,22 @@ def set_debug_mode(enabled: bool):
     stats["debug_mode"] = enabled
     save_stats(stats)
 
-async def send_debug_msg(bot, message: str):
-    if not is_debug_mode():
-        return
+async def get_debug_channel(bot):
+    """Returns the debug channel object, trying cache first then API fetch."""
     ch = bot.get_channel(DEBUG_CHANNEL_ID)
     if ch is None:
         try:
             ch = await bot.fetch_channel(DEBUG_CHANNEL_ID)
         except Exception as e:
-            print(f"[send_debug_msg] fetch_channel failed: {e}")
-            return
+            print(f"[get_debug_channel] fetch failed: {e}")
+    return ch
+
+async def send_debug_msg(bot, message: str):
+    if not is_debug_mode():
+        return
+    ch = await get_debug_channel(bot)
+    if ch is None:
+        return
     try:
         await ch.send(message)
     except Exception as e:

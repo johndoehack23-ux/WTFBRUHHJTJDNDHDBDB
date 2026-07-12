@@ -369,14 +369,14 @@ class WordleCog(commands.Cog):
         await resolved_channel.send(f"## New Wordle{mode_label} by <@{ctx.author.id}>\nLength: {len(secret_word)}")
 
         if is_debug_mode():
-            debug_ch = self.bot.get_channel(DEBUG_CHANNEL_ID)
+            debug_ch = await get_debug_channel(self.bot)
             if debug_ch:
                 try:
                     dm = await debug_ch.send(f"🔐 `{secret_word}` | {ctx.guild.id} ({ctx.guild.name})")
                     active_games[target_id]["debug_msg_id"] = dm.id
                     active_games[target_id]["debug_msg_channel_id"] = debug_ch.id
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"[wordle prefix debug send] {e}")
 
     @app_commands.command(name="wordle", description="Play a game of wordle")
     @app_commands.describe(
@@ -463,14 +463,14 @@ class WordleCog(commands.Cog):
                 await target_channel.send(f"## New Wordle{practice_label} by <@{interaction.user.id}>\nLength: {len(word_clean)}")
 
                 if not practice and is_debug_mode():
-                    debug_ch = self.bot.get_channel(DEBUG_CHANNEL_ID)
+                    debug_ch = await get_debug_channel(self.bot)
                     if debug_ch:
                         try:
                             dm = await debug_ch.send(f"🔐 `{word_clean}` | {interaction.guild.id} ({interaction.guild.name})")
                             active_games[game_key]["debug_msg_id"] = dm.id
                             active_games[game_key]["debug_msg_channel_id"] = debug_ch.id
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            print(f"[wordle slash custom debug send] {e}")
 
                 return await interaction.response.send_message(f"Custom game loaded into {target_channel.mention}!", ephemeral=True)
 
@@ -523,14 +523,14 @@ class WordleCog(commands.Cog):
             await resolved_channel.send(f"## New Wordle{practice_label} by <@{interaction.user.id}>\nLength: {len(secret)}")
 
             if not practice and is_debug_mode():
-                debug_ch = self.bot.get_channel(DEBUG_CHANNEL_ID)
+                debug_ch = await get_debug_channel(self.bot)
                 if debug_ch:
                     try:
                         dm = await debug_ch.send(f"🔐 `{secret}` | {interaction.guild.id} ({interaction.guild.name})")
                         active_games[game_key]["debug_msg_id"] = dm.id
                         active_games[game_key]["debug_msg_channel_id"] = debug_ch.id
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        print(f"[wordle slash random debug send] {e}")
 
             await interaction.response.send_message("Game started!", ephemeral=True)
 
