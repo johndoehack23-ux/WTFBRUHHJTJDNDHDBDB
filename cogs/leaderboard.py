@@ -5,6 +5,9 @@ import math
 from functions import *
 
 ENTRIES_PER_PAGE = 10
+MAX_LEADERBOARD_PAGES = 1000
+LEADERBOARD_PAGE_FILE = "wordle_leaderboards.json"
+LEADERBOARD_PAGE_KEYS = [str(page) for page in range(1, 11)]
 
 import secrets
 import string
@@ -103,9 +106,9 @@ class LeaderboardResetConfirmView(discord.ui.View):
 class PageModal(discord.ui.Modal, title="Go to Page"):
     page_input = discord.ui.TextInput(
         label="Page Number",
-        placeholder="Enter a page number...",
+        placeholder="Select a page (1-1000)",
         min_length=1,
-        max_length=6
+        max_length=4
     )
 
     def __init__(self, view):
@@ -119,7 +122,8 @@ class PageModal(discord.ui.Modal, title="Go to Page"):
             return await interaction.response.send_message("❌ Invalid page number.", ephemeral=True)
         if page < 0 or page >= self.lb_view.total_pages:
             return await interaction.response.send_message(
-                f"❌ Page must be between 1 and {self.lb_view.total_pages}.", ephemeral=True
+                f"❌ Page must be between 1 and {min(self.lb_view.total_pages, MAX_LEADERBOARD_PAGES)}.",
+                ephemeral=True
             )
         self.lb_view.current_page = page
         self.lb_view.update_buttons()
@@ -133,7 +137,10 @@ class LeaderboardView(discord.ui.View):
         self.mode = mode
         self.guild_name = guild_name
         self.current_page = 0
-        self.total_pages = max(1, math.ceil(len(entries) / ENTRIES_PER_PAGE))
+        self.total_pages = min(
+            MAX_LEADERBOARD_PAGES,
+            max(1, math.ceil(len(entries) / ENTRIES_PER_PAGE)),
+        )
         self.update_buttons()
 
     def build_embed(self):
@@ -165,7 +172,7 @@ class LeaderboardView(discord.ui.View):
 
         lines = []
         for i, entry in enumerate(page_entries, start_rank + 1):
-            username = entry.get("username", "Unknown")
+            username = entry.get("display_name") or entry.get("username", "Unknown")
             current = entry.get("current_streak", 0)
             
             # Determine the streak emoji when streak is greater than 0
@@ -197,14 +204,14 @@ class LeaderboardView(discord.ui.View):
     def update_buttons(self):
         self.clear_items()
 
-        # ── Row 0: direct page buttons 1-5 ──
-        for p in range(1, 6):
+        # ── Rows 0-1: direct page buttons 1-10 ──
+        for p in range(1, 11):
             is_cur = (self.current_page == p - 1)
             b = discord.ui.Button(
                 label=str(p),
                 style=discord.ButtonStyle.primary if is_cur else discord.ButtonStyle.secondary,
                 disabled=(p > self.total_pages),
-                row=0
+                row=0 if p <= 5 else 1
             )
             async def _pcb(interaction: discord.Interaction, pg=p - 1, v=self):
                 v.current_page = pg
@@ -213,12 +220,12 @@ class LeaderboardView(discord.ui.View):
             b.callback = _pcb
             self.add_item(b)
 
-        # ── Row 1: << < > >> Enter Page ──
+        # ── Row 2: << < > >> Select a page ──
         jump_back = discord.ui.Button(
             label="<<",
             style=discord.ButtonStyle.secondary,
             disabled=(self.current_page < 10),
-            row=1
+            row=2
         )
         async def jump_back_cb(interaction: discord.Interaction, v=self):
             v.current_page = max(0, v.current_page - 10)
@@ -231,7 +238,7 @@ class LeaderboardView(discord.ui.View):
             label="<",
             style=discord.ButtonStyle.secondary,
             disabled=(self.current_page == 0),
-            row=1
+            row=2
         )
         async def prev_cb(interaction: discord.Interaction, v=self):
             v.current_page = max(0, v.current_page - 1)
@@ -244,7 +251,7 @@ class LeaderboardView(discord.ui.View):
             label=">",
             style=discord.ButtonStyle.secondary,
             disabled=(self.current_page >= self.total_pages - 1),
-            row=1
+            row=2
         )
         async def next_cb(interaction: discord.Interaction, v=self):
             v.current_page = min(v.total_pages - 1, v.current_page + 1)
@@ -257,7 +264,7 @@ class LeaderboardView(discord.ui.View):
             label=">>",
             style=discord.ButtonStyle.secondary,
             disabled=(self.current_page >= self.total_pages - 10),
-            row=1
+            row=2
         )
         async def jump_fwd_cb(interaction: discord.Interaction, v=self):
             v.current_page = min(self.total_pages - 1, v.current_page + 10)
@@ -267,9 +274,9 @@ class LeaderboardView(discord.ui.View):
         self.add_item(jump_fwd)
 
         ep = discord.ui.Button(
-            label="Enter Page",
+            label="Select a page (1-1000)",
             style=discord.ButtonStyle.secondary,
-            row=1
+            row=2
         )
         async def ep_cb(interaction: discord.Interaction, v=self):
             await interaction.response.send_modal(PageModal(v))
@@ -285,6 +292,36 @@ class LeaderboardCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    def _display_user(self, user_id, username, guild=None):
+        """Resolve a stored user ID to a mention/name when possible."""
+        member = guild.get_member(int(user_id)) if guild and str(user_id).isdigit() else None
+        user = member or (
+            self.bot.get_user(int(user_id))
+            if str(user_id).isdigit()
+            else None
+        )
+        if user:
+            return user.mention
+        return f"{username} (`{user_id}`)"
+
+    def _sync_page_cache(self, scope, entries, guild_id=None):
+        """Keep numbered server/global page buckets available for inspection."""
+        data = load_json(LEADERBOARD_PAGE_FILE, lambda: {"servers": {}, "global": {}})
+        data.setdefault("servers", {})
+        data.setdefault("global", {})
+
+        if scope == "server":
+            page_map = data["servers"].setdefault(str(guild_id), {})
+        else:
+            page_map = data["global"]
+
+        for page_key in LEADERBOARD_PAGE_KEYS:
+            page_number = int(page_key)
+            start = (page_number - 1) * ENTRIES_PER_PAGE
+            page_map[page_key] = entries[start:start + ENTRIES_PER_PAGE]
+
+        save_json(LEADERBOARD_PAGE_FILE, data)
+
     def _build_global_entries(self):
         best_per_user = {}
         data = load_json(LEADERBOARD_FILE, lambda: {"servers": {}})
@@ -296,8 +333,11 @@ class LeaderboardCog(commands.Cog):
                 # FIXED: Strictly ensures only streaks GREATER THAN 0 can make it to global leaderboard
                 if current > 0:
                     if uid not in best_per_user or current > best_per_user[uid]["current_streak"]:
+                        display_name = self._display_user(uid, d.get("username", "Unknown"), guild)
                         best_per_user[uid] = {
+                            "user_id": uid,
                             "username": d.get("username", "Unknown"),
+                            "display_name": display_name,
                             "current_streak": current,
                             "server_name": server_name
                         }
@@ -313,7 +353,9 @@ class LeaderboardCog(commands.Cog):
             # FIXED: Strictly ensures only streaks GREATER THAN 0 can make it to local server leaderboard
             if current > 0:
                 entries.append({
+                    "user_id": uid,
                     "username": d.get("username", "Unknown"),
+                    "display_name": self._display_user(uid, d.get("username", "Unknown"), self.bot.get_guild(int(guild_id))),
                     "current_streak": current,
                 })
         entries.sort(key=lambda x: x["current_streak"], reverse=True)
@@ -384,11 +426,13 @@ class LeaderboardCog(commands.Cog):
             if not entries:
                 return await ctx.send("🏆 No stats yet globally!")
             view = LeaderboardView(entries, mode="global")
+            self._sync_page_cache("global", entries)
         else:
             entries = self._build_server_entries(ctx.guild.id)
             if not entries:
                 return await ctx.send("🏆 No stats yet for this server!")
             view = LeaderboardView(entries, mode="server", guild_name=ctx.guild.name)
+            self._sync_page_cache("server", entries, ctx.guild.id)
 
         await ctx.send(embed=view.build_embed(), view=view)
 
@@ -587,11 +631,13 @@ class LeaderboardCog(commands.Cog):
             if not entries:
                 return await interaction.response.send_message("🏆 No stats yet globally!", ephemeral=True)
             view = LeaderboardView(entries, mode="global")
+            self._sync_page_cache("global", entries)
         else:
             entries = self._build_server_entries(interaction.guild.id)
             if not entries:
                 return await interaction.response.send_message("🏆 No stats yet for this server!", ephemeral=True)
             view = LeaderboardView(entries, mode="server", guild_name=interaction.guild.name)
+            self._sync_page_cache("server", entries, interaction.guild.id)
 
         await interaction.response.send_message(embed=view.build_embed(), view=view)
 

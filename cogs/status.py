@@ -2,9 +2,6 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from functions import is_admin, is_op
-
-
 STATUS_NAMES = {"online", "idle", "dnd", "offline"}
 STATUS_OWNER_ID = 1465295674768883889
 ACTIVITY_PREFIXES = {
@@ -37,8 +34,8 @@ class StatusCog(commands.Cog):
         self.bot = bot
         self.current_activity = None
 
-    def allowed(self, user, guild):
-        return bool(guild and (is_admin(user.id, guild) or is_op(user.id)))
+    def allowed(self, user, guild=None):
+        return user.id == STATUS_OWNER_ID
 
     async def apply_status(self, status, text):
         status = status.lower().strip()
@@ -73,7 +70,7 @@ class StatusCog(commands.Cog):
     @commands.command(name="status")
     async def status_prefix(self, ctx, status: str = None, text: str = None):
         if not self.allowed(ctx.author, ctx.guild):
-            return await ctx.send("❌ Only an admin or op can change the bot status.")
+            return await ctx.send("❌ Only the bot owner can change the bot status.")
         if not status or not text:
             return await ctx.send(
                 "Usage: `.status <online|idle|dnd|offline> \"<activity text>\"`\n"
@@ -96,7 +93,7 @@ class StatusCog(commands.Cog):
     ):
         if not self.allowed(interaction.user, interaction.guild):
             return await interaction.response.send_message(
-                "❌ Only an admin or op can change the bot status.", ephemeral=True
+                "❌ Only the bot owner can change the bot status.", ephemeral=True
             )
         result, error = await self.apply_status(status, text)
         await interaction.response.send_message(error or result, ephemeral=True)
