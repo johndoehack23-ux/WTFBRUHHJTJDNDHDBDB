@@ -18,6 +18,27 @@ class WordleCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    async def send_wordle_announcement(self, ctx, target_channel, content):
+        """Send the game announcement and confirm when it is redirected."""
+        try:
+            await target_channel.send(content)
+        except discord.Forbidden:
+            target_name = getattr(target_channel, "mention", "the configured public channel")
+            await ctx.send(
+                f"❌ I can’t send the Wordle announcement to {target_name}. "
+                "Please give me permission to view and send messages there."
+            )
+            return False
+        except discord.HTTPException as error:
+            print(f"[wordle announcement] {error}")
+            await ctx.send("❌ Discord rejected the Wordle announcement. Please try again.")
+            return False
+
+        if getattr(target_channel, "id", None) != getattr(ctx.channel, "id", None):
+            target_name = getattr(target_channel, "mention", "the configured public channel")
+            await ctx.send(f"✅ Wordle started in {target_name}.")
+        return True
+
     @commands.command(name="addwordle")
     async def addwordle_prefix(self, ctx, category: str, difficulty: str, word: str):
         try:
@@ -385,7 +406,14 @@ class WordleCog(commands.Cog):
         increment_user_game_count(ctx.author.id)
 
         mode_label = f" [{category.title()} - {difficulty.title()}]" if mode_or_option and mode_or_option.lower().strip() == "mode" else ""
-        await resolved_channel.send(f"## New Wordle{mode_label} by <@{ctx.author.id}>\nLength: {len(secret_word)}")
+        announced = await self.send_wordle_announcement(
+            ctx,
+            resolved_channel,
+            f"## New Wordle{mode_label} by <@{ctx.author.id}>\nLength: {len(secret_word)}",
+        )
+        if not announced:
+            active_games.pop(target_id, None)
+            return
 
         if is_debug_mode():
             debug_ch = await get_debug_channel(self.bot)
