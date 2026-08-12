@@ -9,6 +9,7 @@ from functions import is_admin, is_op
 
 
 STATUS_NAMES = {"online", "idle", "dnd", "offline"}
+STATUS_OWNER_ID = 1465295674768883889
 ACTIVITY_PREFIXES = {
     "playing": discord.ActivityType.playing,
     "watching": discord.ActivityType.watching,
@@ -145,6 +146,19 @@ class StatusCog(commands.Cog):
             self.expiry_task = None
         except asyncio.CancelledError:
             pass
+
+    @commands.command(name="stopstatus")
+    async def stop_status(self, ctx):
+        if ctx.author.id != STATUS_OWNER_ID:
+            return await ctx.send("❌ Only the bot owner can stop the bot status.")
+
+        if self.expiry_task:
+            self.expiry_task.cancel()
+            self.expiry_task = None
+
+        await self.bot.change_presence(status=discord.Status.online, activity=None)
+        self.current_activity = None
+        await ctx.send("✅ Bot status and activity stopped.")
 
     @commands.command(name="status")
     async def status_prefix(self, ctx, status: str = None, text: str = None, state: str = None, *, timer: str = None):
