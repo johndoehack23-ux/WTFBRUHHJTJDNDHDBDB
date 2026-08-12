@@ -23,6 +23,7 @@ def remove_copy_files():
 remove_copy_files()
 
 import json
+import re
 import random
 import discord
 import asyncio
@@ -32,9 +33,29 @@ active_1v1_lobbies = {}
 active_1v1_matches = {}   # channel_id -> match data
 
 # Add this function
+WORD_LIST_FILES = [f"wordle_list{i}.json" for i in range(1, 6)]
+
+
+def load_wordle_lists():
+    """Combine the numbered Wordle lists into one difficulty mapping."""
+    combined = {}
+    for filename in WORD_LIST_FILES:
+        data = load_json(filename, dict)
+        if not isinstance(data, dict):
+            continue
+        for difficulty, words in data.items():
+            if not isinstance(words, list):
+                continue
+            pool = combined.setdefault(difficulty, [])
+            for word in words:
+                if isinstance(word, str) and word not in pool:
+                    pool.append(word)
+    return combined
+
+
 def get_random_word_1v1(guild_id, length: int = None):
     """Get random word for 1v1 (can force length)"""
-    words_dict = load_json(WORD_LIST_FILE, dict)
+    words_dict = load_wordle_lists()
     all_words = []
     for cat in words_dict.values():
         all_words.extend(cat)
@@ -56,7 +77,9 @@ STATS_FILE = "stats.json"
 LEADERBOARD_FILE = "wordle_leaderboard.json"
 CATEGORIES_FILE = "categories.json"
 ROLES_FILE = "roles.json"
-WORD_LIST_FILE = "word_list.json"
+# Kept as a compatibility alias for older imports; the active source is the
+# five numbered files above.
+WORD_LIST_FILE = WORD_LIST_FILES[0]
 EMOJI_FILE = "emoji.json"
 LIMIT_FILE = "wordle_limit.json"
 
@@ -228,7 +251,7 @@ def toggle_whitelist(guild_id: int, user_id: int):
 def get_random_word(guild_id, category=None):
     gid = str(guild_id)
     # Load the dictionary of words
-    words_dict = load_json(WORD_LIST_FILE, dict)
+    words_dict = load_wordle_lists()
 
     # If no category was chosen, find the server's default or use 'medium'
     if not category or category.lower() == "default":
@@ -238,7 +261,7 @@ def get_random_word(guild_id, category=None):
             .get("default_category", "medium")
         )
 
-    # Fallback if the category doesn't exist in word_list.json
+    # Fallback if the category doesn't exist in the numbered Wordle lists.
     if category not in words_dict:
         available = list(words_dict.keys()) if words_dict else ["apple"]
         category = random.choice(available)
@@ -456,10 +479,40 @@ def save_auto_responses(data):
 def parse_reactions(react_str: str):
     if not react_str:
         return None
+    if isinstance(react_str, (list, tuple)):
+        return [str(r).strip() for r in react_str if str(r).strip()]
+    react_str = str(react_str).strip()
     if '-' in react_str:
         return [r.strip() for r in react_str.split('-') if r.strip()]
-    else:
-        return [c for c in react_str if c.strip()]
+    if re.fullmatch(r"<a?:[A-Za-z0-9_~]+:\d+>", react_str):
+        return [react_str]
+    return [react_str]
+
+
+EMOJI_LIST_FILE = "emoji_list.json"
+
+
+def load_allowed_emoji_list():
+    data = load_json(EMOJI_LIST_FILE, list)
+    if isinstance(data, dict):
+        data = data.get("allowed", [])
+    return {str(item).strip() for item in data if str(item).strip()}
+
+
+def custom_emoji_id(value):
+    match = re.fullmatch(r"<a?:[A-Za-z0-9_~]+:(\d+)>", str(value).strip())
+    return int(match.group(1)) if match else None
+
+
+def is_reaction_allowed(value, guild=None, is_global=False):
+    """Validate Unicode reactions and server emoji access."""
+    value = str(value).strip()
+    emoji_id = custom_emoji_id(value)
+    if emoji_id is None:
+        return bool(value)
+    if is_global:
+        return value in load_allowed_emoji_list()
+    return bool(guild and guild.get_emoji(emoji_id))
 
 def parse_cooldown(cooldown_str: str):
     if not cooldown_str:
@@ -488,7 +541,7 @@ def add_auto_response(trigger: str, reply: str, matchmode: str = "contains",
         "react": parse_reactions(react),
         "channel": str(channel) if channel else None,
         "cooldown": parse_cooldown(cooldown),
-        "global": False,
+        "global": bool(global_server),
         "guild_id": str(guild_id) if guild_id else None
     }
     save_auto_responses(data)

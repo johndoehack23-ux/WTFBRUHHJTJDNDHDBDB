@@ -140,5 +140,48 @@
         "cooldown": 0,
         "global": false,
         "guild_id": "1481930888702070815"
+    },
+    "willow": {
+        "trigger": "willow",
+        "response": "the goat 🔥",
+        "matchmode": "contains",
+        "react": null,
+        "channel": null,
+        "cooldown": 0,
+        "global": false,
+        "guild_id": "1510606157100613682"
+    },
+    "kira": {
+        "trigger": "kira",
+        "response": "THE BEST OWNER IN THIS SERVER 🔥",
+        "matchmode": "startswith",
+        "react": null,
+        "channel": null,
+        "cooldown": 0,
+        "global": false,
+        "guild_id": "1510606157100613682"
+    },
+    "ninjago": {
+        "trigger": "ninjago",
+        "response": "the goat of being a solo programmer 🔥🔥",
+        "matchmode": "contains",
+        "react": [
+            "💔",
+            "🥀"
+        ],
+        "channel": null,
+        "cooldown": 0,
+        "global": false,
+        "guild_id": "1510606157100613682"
+    },
+    "help": {
+        "trigger": "help",
+        "response": "I wouldn't help bums",
+        "matchmode": "contains",
+        "react": null,
+        "channel": null,
+        "cooldown": 0,
+        "global": false,
+        "guild_id": "1462862903169253468"
     }
 }

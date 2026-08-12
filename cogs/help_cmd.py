@@ -73,11 +73,8 @@ def build_help_embed(user_id, guild, guild_id_str):
             f"`{prefix}access` — Reset ALL daily wordle limits globally\n"
             f"`{prefix}bllserver [serverID]` — Blacklist or unblacklist a server\n"
             f"`{prefix}maintenance` / `/maintenance` — Toggle maintenance mode\n"
-            f"`{prefix}warn` / `/warn` — Warn a member *(Timeout/Kick/Ban/Admin)*\n"
-            f"`{prefix}mute` / `/mute` — Timeout a member *(Timeout/Admin, max 28d)*\n"
-            f"`{prefix}kick` / `/kick` — Kick a member *(Kick/Admin)*\n"
-            f"`{prefix}ban` / `/ban` — Ban a member *(Ban/Admin)*\n"
-            f"`{prefix}cases <@user>` — View a member's mod case history"
+            f"`{prefix}status <status> \"<text>\" <on|off>` — Set the bot's status and activity\n"
+            f"`{prefix}whato` — Toggle bot commands for this server"
         )
         embed.add_field(name="🔴 Admin", value=admin_lines, inline=False)
 

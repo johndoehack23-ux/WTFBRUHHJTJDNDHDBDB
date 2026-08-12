@@ -78,6 +78,17 @@ class AutoresponderCog(commands.Cog):
                 return await interaction.response.send_message("❌ Need `trigger` + `reply`", ephemeral=True)
 
             is_global = global_server if is_admin(interaction.user.id, interaction.guild, check_global=True) else False
+            if react:
+                if not is_reaction_allowed(react, interaction.guild, is_global=is_global):
+                    if is_global:
+                        return await interaction.response.send_message(
+                            "❌ Global autoresponders may use Unicode emoji or a custom emoji listed in `emoji_list.json` only.",
+                            ephemeral=True,
+                        )
+                    return await interaction.response.send_message(
+                        "❌ A server emoji can only be used by a local autoresponder in the current server.",
+                        ephemeral=True,
+                    )
 
             add_auto_response(
                 trigger=trigger,
@@ -102,7 +113,13 @@ class AutoresponderCog(commands.Cog):
                 if all_responses[trigger.lower().strip()].get("global") and not is_admin(interaction.user.id, interaction.guild, check_global=True):
                     return await interaction.response.send_message("❌ You do not have permission to use this command.", ephemeral=True)
 
-            edit_auto_response(trigger, new_trigger, reply, matchmode, react, channel_id, cooldown, global_server)
+            edit_global = global_server if is_admin(interaction.user.id, interaction.guild, check_global=True) else False
+            if react and not is_reaction_allowed(react, interaction.guild, is_global=edit_global):
+                return await interaction.response.send_message(
+                    "❌ Custom server emoji must be local to this server, or listed in `emoji_list.json` for a global autoresponder.",
+                    ephemeral=True,
+                )
+            edit_auto_response(trigger, new_trigger, reply, matchmode, react, channel_id, cooldown, edit_global)
             await interaction.response.send_message(f"✅ Updated autoresponder setup: `{trigger}`", ephemeral=True)
             await send_debug_msg(self.bot, f"🤖 `/autoresponder edit` | {interaction.user} (`{interaction.user.id}`) edited trigger `{trigger}` | {interaction.guild.name}")
 

@@ -19,9 +19,9 @@ class InviteCog(commands.Cog):
     @commands.command(name="addinvite")
     async def add_invite_management(self, ctx, category: str = None, target_id: str = None, action: str = None):
         if is_maintenance_mode() and not is_admin(ctx.author.id):
-            return await ctx.send("🛠️ **Bot is under maintenance.**")
-
-        if str(ctx.author.id) not in ADMIN_IDS:
+            return await ctx.send("🛠️ **Bot is under maintenance.")
+            
+        if not is_op(ctx.author.id):
             return await ctx.send("You do not have permission to use this command.")
 
         if not category:

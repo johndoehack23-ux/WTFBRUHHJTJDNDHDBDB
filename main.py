@@ -271,7 +271,7 @@ async def global_prefix_blacklist_check(ctx: commands.Context):
     return True
 
 # Whato exempt commands — always allowed even when whato is toggled off
-_WHATO_EXEMPT = {"ping", "stats", "whato", "help", "debugtest"}
+_WHATO_EXEMPT = {"wordle", "ping", "stats", "whato", "help", "debugtest"}
 
 @bot.check
 async def global_whato_check(ctx: commands.Context):
@@ -439,8 +439,15 @@ async def on_message(message):
                 if data.get("response"):
                     await message.channel.send(data["response"])
                 if data.get("react"):
-                    for emoji in data["react"]:
+                    reactions = data["react"] if isinstance(data["react"], list) else [data["react"]]
+                    for emoji in reactions:
                         try:
+                            if not is_reaction_allowed(
+                                emoji,
+                                message.guild,
+                                is_global=bool(data.get("global")),
+                            ):
+                                continue
                             await message.add_reaction(emoji)
                         except:
                             pass

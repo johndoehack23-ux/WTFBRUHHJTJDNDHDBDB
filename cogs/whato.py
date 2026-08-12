@@ -29,7 +29,7 @@ class WhatoCog(commands.Cog):
                 title="🔇 Commands Disabled",
                 description=(
                     "All bot commands have been **disabled** for this server.\n\n"
-                    "Only these still work: `ping`, `stats`, `help`, `whato`, `debugtest`\n\n"
+                    "Only these still work: `wordle`, `ping`, `stats`, `help`, `whato`, `debugtest`\n\n"
                     "Run `.whato` again to re-enable everything."
                 ),
                 color=0xFF4500
