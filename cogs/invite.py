@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
+import re
 from functions import *
 
 class InviteBotView(discord.ui.View):
@@ -15,6 +16,12 @@ class InviteBotView(discord.ui.View):
 class InviteCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+
+    @staticmethod
+    def normalize_id(value):
+        """Accept raw IDs plus common Discord formatting/backticks."""
+        cleaned = re.sub(r"\D", "", str(value))
+        return cleaned or None
 
     @commands.command(name="addinvite")
     async def add_invite_management(self, ctx, category: str = None, target_id: str = None, action: str = None):
@@ -45,17 +52,16 @@ class InviteCog(commands.Cog):
             return await ctx.send("❌ Please provide a valid User ID or Server ID.")
 
         # Scrub the ID completely of channels, roles, or accidental copy-paste symbols
-        clean_id = str(target_id).replace("<@", "").replace("!", "").replace(">", "").replace("#", "").strip()
+        clean_id = self.normalize_id(target_id)
 
         # Final sanity check: Ensure the serverID consists ONLY of numbers
-        if not clean_id.isdigit():
+        if not clean_id:
             return await ctx.send(f"❌ `{target_id}` is not a valid numeric ID. Make sure it contains only numbers.")
 
         if category == "user":
             stats = load_stats()
-            if "invited_users" not in stats:
-                stats["invited_users"] = []
-            pool = stats["invited_users"]
+            pool = [str(value) for value in stats.get("invited_users", []) if str(value).isdigit()]
+            stats["invited_users"] = pool
 
             if action and action.lower().strip() == "remove":
                 if clean_id in pool:
@@ -73,9 +79,8 @@ class InviteCog(commands.Cog):
 
         elif category == "server":
             stats = load_stats()
-            if "allowed_servers" not in stats:
-                stats["allowed_servers"] = []
-            pool = stats["allowed_servers"]
+            pool = [str(value) for value in stats.get("allowed_servers", []) if str(value).isdigit()]
+            stats["allowed_servers"] = pool
 
             if action and action.lower().strip() == "remove":
                 if clean_id in pool:
@@ -110,7 +115,7 @@ class InviteCog(commands.Cog):
         invited_pool = stats.get("invited_users", [])
         user_id_str = str(interaction.user.id)
 
-        if user_id_str not in invited_pool and user_id_str not in ADMIN_IDS:
+        if user_id_str not in invited_pool and not is_admin(interaction.user.id):
             return await interaction.response.send_message(
                 "❌ You are not authorized to invite this bot. Please contact the administrator.",
                 ephemeral=True

@@ -1043,29 +1043,34 @@ class BotCommands(commands.Cog):
         if str(ctx.author.id) not in ADMIN_IDS:
             return await ctx.send("You do not have permission to use this command.")
 
-        if not category or not target_id:
+        if not category:
             return await ctx.send("❌ **Usage:**\n`.addinvite user <userID>`\n`.addinvite user <userID> remove`\n`.addinvite server <serverID>`\n`.addinvite server <serverID> remove`\n`.addinvite cleanall` (wipes users)")
 
         # Handle wipe quickly
         if category.lower().strip() == "cleanall":
-            server_config["invited_users"] = []
-            save_json(CONFIG_FILE, server_config)
+            stats = load_stats()
+            stats["invited_users"] = []
+            save_stats(stats)
             return await ctx.send("🔓 Successfully **wiped the user invite whitelist**.")
 
+        if not target_id:
+            return await ctx.send("❌ Please provide a valid User ID or Server ID.")
+
         category = category.lower().strip()
-        clean_id = target_id.replace("<@", "").replace("!", "").replace(">", "").strip()
+        clean_id = "".join(char for char in str(target_id) if char.isdigit())
+        if not clean_id:
+            return await ctx.send(f"❌ `{target_id}` is not a valid numeric ID.")
 
         # --- USER MANAGEMENT ---
         if category == "user":
-            if "invited_users" not in server_config:
-                server_config["invited_users"] = []
-            
-            pool = server_config["invited_users"]
+            stats = load_stats()
+            pool = [str(value) for value in stats.get("invited_users", []) if str(value).isdigit()]
+            stats["invited_users"] = pool
             
             if action and action.lower().strip() == "remove":
                 if clean_id in pool:
                     pool.remove(clean_id)
-                    save_json(CONFIG_FILE, server_config)
+                    save_stats(stats)
                     return await ctx.send(f"❌ User ID `{clean_id}` removed from invite whitelist.")
                 return await ctx.send("❌ User not found in whitelist.")
 
@@ -1073,20 +1078,19 @@ class BotCommands(commands.Cog):
                 return await ctx.send("ℹ️ User is already whitelisted.")
             
             pool.append(clean_id)
-            save_json(CONFIG_FILE, server_config)
+            save_stats(stats)
             return await ctx.send(f"✅ User ID `{clean_id}` added to invite whitelist!")
 
         # --- SERVER MANAGEMENT ---
         elif category == "server":
-            if "allowed_servers" not in server_config:
-                server_config["allowed_servers"] = []
-            
-            pool = server_config["allowed_servers"]
+            stats = load_stats()
+            pool = [str(value) for value in stats.get("allowed_servers", []) if str(value).isdigit()]
+            stats["allowed_servers"] = pool
 
             if action and action.lower().strip() == "remove":
                 if clean_id in pool:
                     pool.remove(clean_id)
-                    save_json(CONFIG_FILE, server_config)
+                    save_stats(stats)
                     return await ctx.send(f"❌ Server ID `{clean_id}` removed from allowed servers list.")
                 return await ctx.send("❌ Server not found in allowed list.")
 
@@ -1094,7 +1098,7 @@ class BotCommands(commands.Cog):
                 return await ctx.send("ℹ️ Server is already whitelisted.")
             
             pool.append(clean_id)
-            save_json(CONFIG_FILE, server_config)
+            save_stats(stats)
             return await ctx.send(f"✅ Server ID `{clean_id}` added to allowed servers list!")
         
         else:

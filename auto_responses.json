@@ -183,5 +183,15 @@
         "cooldown": 0,
         "global": false,
         "guild_id": "1462862903169253468"
+    },
+    "i suck": {
+        "trigger": "i suck",
+        "response": "I agree",
+        "matchmode": "contains",
+        "react": null,
+        "channel": null,
+        "cooldown": 0,
+        "global": true,
+        "guild_id": "1462862903169253468"
     }
 }

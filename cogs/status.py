@@ -42,6 +42,10 @@ class StatusCog(commands.Cog):
         if status not in STATUS_NAMES:
             return None, "Status must be `online`, `idle`, `dnd`, or `offline`."
 
+        text = str(text).strip()
+        if len(text) >= 2 and text[0] == text[-1] and text[0] in {"\"", "'"}:
+            text = text[1:-1].strip()
+
         activity, error = make_activity(text)
         if error:
             return None, error
@@ -67,8 +71,8 @@ class StatusCog(commands.Cog):
         self.current_activity = None
         await ctx.send("✅ Bot status and activity stopped.")
 
-    @commands.command(name="status")
-    async def status_prefix(self, ctx, status: str = None, text: str = None):
+    @commands.command(name="status", aliases=["starus"])
+    async def status_prefix(self, ctx, status: str = None, *, text: str = None):
         if not self.allowed(ctx.author, ctx.guild):
             return await ctx.send("❌ Only the bot owner can change the bot status.")
         if not status or not text:
