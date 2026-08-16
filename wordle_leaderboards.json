@@ -1,5 +1,80 @@
 {
-    "servers": {},
+    "servers": {
+        "1450916647287394307": {
+            "1": [
+                {
+                    "user_id": "1465295674768883889",
+                    "username": "iamninjaau",
+                    "display_name": "<@1465295674768883889>",
+                    "current_streak": 3
+                },
+                {
+                    "user_id": "1059768166911324241",
+                    "username": ".keith.",
+                    "display_name": "<@1059768166911324241>",
+                    "current_streak": 2
+                },
+                {
+                    "user_id": "750057209865699410",
+                    "username": "der25cap",
+                    "display_name": "<@750057209865699410>",
+                    "current_streak": 2
+                }
+            ],
+            "2": [],
+            "3": [],
+            "4": [],
+            "5": [],
+            "6": [],
+            "7": [],
+            "8": [],
+            "9": [],
+            "10": []
+        },
+        "1462862903169253468": {
+            "1": [
+                {
+                    "user_id": "1465295674768883889",
+                    "username": "iamninjaau",
+                    "display_name": "<@1465295674768883889>",
+                    "current_streak": 28
+                },
+                {
+                    "user_id": "1196532232014274600",
+                    "username": "dom4329.",
+                    "display_name": "<@1196532232014274600>",
+                    "current_streak": 9
+                },
+                {
+                    "user_id": "1454790929709010967",
+                    "username": "realxolotlamiogus",
+                    "display_name": "<@1454790929709010967>",
+                    "current_streak": 8
+                },
+                {
+                    "user_id": "1404020315293487249",
+                    "username": "number1_barryfan",
+                    "display_name": "<@1404020315293487249>",
+                    "current_streak": 2
+                },
+                {
+                    "user_id": "1343692602838614069",
+                    "username": "avgrio_41726",
+                    "display_name": "<@1343692602838614069>",
+                    "current_streak": 2
+                }
+            ],
+            "2": [],
+            "3": [],
+            "4": [],
+            "5": [],
+            "6": [],
+            "7": [],
+            "8": [],
+            "9": [],
+            "10": []
+        }
+    },
     "global": {
         "1": [
             {
@@ -19,14 +94,14 @@
             {
                 "user_id": "1509966280373829833",
                 "username": "eldox1._.",
-                "display_name": "<@1509966280373829833>",
+                "display_name": "eldox1._. (`1509966280373829833`)",
                 "current_streak": 22,
                 "server_name": "S Y G × Ninja server"
             },
             {
                 "user_id": "763041127992524822",
                 "username": "k4opyy",
-                "display_name": "<@763041127992524822>",
+                "display_name": "k4opyy (`763041127992524822`)",
                 "current_streak": 16,
                 "server_name": "xkira"
             },
@@ -75,6 +150,27 @@
         ],
         "2": [
             {
+                "user_id": "1503267385619124375",
+                "username": "sygau66",
+                "display_name": "<@1503267385619124375>",
+                "current_streak": 10,
+                "server_name": "Shadow Garden"
+            },
+            {
+                "user_id": "1401245572882501643",
+                "username": "light.yagami.kira.justice",
+                "display_name": "<@1401245572882501643>",
+                "current_streak": 10,
+                "server_name": "Shadow Garden"
+            },
+            {
+                "user_id": "1196532232014274600",
+                "username": "dom4329.",
+                "display_name": "<@1196532232014274600>",
+                "current_streak": 9,
+                "server_name": "𝖃𝖔𝖑𝖔𝖙𝖑'𝖘 𝕰𝖒𝖕𝖎𝖗𝖊"
+            },
+            {
                 "user_id": "1400434661938827376",
                 "username": "thegoutzi",
                 "display_name": "<@1400434661938827376>",
@@ -96,25 +192,18 @@
                 "server_name": "xkira"
             },
             {
-                "user_id": "1196532232014274600",
-                "username": "dom4329.",
-                "display_name": "<@1196532232014274600>",
-                "current_streak": 7,
-                "server_name": "𝖃𝖔𝖑𝖔𝖙𝖑'𝖘 𝕰𝖒𝖕𝖎𝖗𝖊"
-            },
-            {
-                "user_id": "1401245572882501643",
-                "username": "light.yagami.kira.justice",
-                "display_name": "<@1401245572882501643>",
-                "current_streak": 7,
-                "server_name": "Shadow Garden"
-            },
-            {
                 "user_id": "1463140022286024715",
                 "username": "fozan_7",
                 "display_name": "<@1463140022286024715>",
                 "current_streak": 6,
                 "server_name": "xkira"
+            },
+            {
+                "user_id": "1454790929709010967",
+                "username": "realxolotlamiogus",
+                "display_name": "<@1454790929709010967>",
+                "current_streak": 6,
+                "server_name": "𝖃𝖔𝖑𝖔𝖙𝖑'𝖘 𝕰𝖒𝖕𝖎𝖗𝖊"
             },
             {
                 "user_id": "1485351766630596789",
@@ -129,23 +218,16 @@
                 "display_name": "<@1219926993458565182>",
                 "current_streak": 5,
                 "server_name": "xkira"
-            },
-            {
-                "user_id": "1503267385619124375",
-                "username": "sygau66",
-                "display_name": "<@1503267385619124375>",
-                "current_streak": 5,
-                "server_name": "🌌 NEXUS LEGION 🌙"
-            },
+            }
+        ],
+        "3": [
             {
                 "user_id": "1428999218730635345",
                 "username": "_sussy_king_",
                 "display_name": "<@1428999218730635345>",
                 "current_streak": 5,
                 "server_name": "Kanko's Server"
-            }
-        ],
-        "3": [
+            },
             {
                 "user_id": "1505051112682557460",
                 "username": "_willow.tree._84908",
@@ -159,13 +241,6 @@
                 "display_name": "<@1454516576324948179>",
                 "current_streak": 4,
                 "server_name": "MELLO’S MAFIA"
-            },
-            {
-                "user_id": "1454790929709010967",
-                "username": "realxolotlamiogus",
-                "display_name": "<@1454790929709010967>",
-                "current_streak": 4,
-                "server_name": "𝖃𝖔𝖑𝖔𝖙𝖑'𝖘 𝕰𝖒𝖕𝖎𝖗𝖊"
             },
             {
                 "user_id": "1498251023280640020",
@@ -182,12 +257,42 @@
                 "server_name": "🌌 NEXUS LEGION 🌙"
             },
             {
+                "user_id": "880813030886232064",
+                "username": "ash_24.",
+                "display_name": "<@880813030886232064>",
+                "current_streak": 3,
+                "server_name": "Shadow Garden"
+            },
+            {
                 "user_id": "1415103886964031590",
                 "username": "x.mumin_68243",
                 "display_name": "<@1415103886964031590>",
                 "current_streak": 3,
                 "server_name": "🪸SYG_AU🪸's server"
             },
+            {
+                "user_id": "1059768166911324241",
+                "username": ".keith.",
+                "display_name": "<@1059768166911324241>",
+                "current_streak": 3,
+                "server_name": "𝐘𝐮𝐦𝐦𝐲 𝐋𝐚𝐧𝐝"
+            },
+            {
+                "user_id": "750057209865699410",
+                "username": "der25cap",
+                "display_name": "<@750057209865699410>",
+                "current_streak": 3,
+                "server_name": "𝐘𝐮𝐦𝐦𝐲 𝐋𝐚𝐧𝐝"
+            },
+            {
+                "user_id": "1530909292683722961",
+                "username": "zico_0961",
+                "display_name": "<@1530909292683722961>",
+                "current_streak": 3,
+                "server_name": "096`1 CREW"
+            }
+        ],
+        "4": [
             {
                 "user_id": "1425753220533452852",
                 "username": "nrlturbo30",
@@ -209,15 +314,6 @@
                 "current_streak": 2,
                 "server_name": "xkira"
             },
-            {
-                "user_id": "880813030886232064",
-                "username": "ash_24.",
-                "display_name": "<@880813030886232064>",
-                "current_streak": 2,
-                "server_name": "🌌 NEXUS LEGION 🌙"
-            }
-        ],
-        "4": [
             {
                 "user_id": "1368711105907527690",
                 "username": "sumrand0m1",
@@ -266,7 +362,9 @@
                 "display_name": "<@1500908704122273792>",
                 "current_streak": 2,
                 "server_name": "Shadow Garden"
-            },
+            }
+        ],
+        "5": [
             {
                 "user_id": "1342875465442136244",
                 "username": "greg_67890",
@@ -287,9 +385,7 @@
                 "display_name": "<@1330262140476723294>",
                 "current_streak": 2,
                 "server_name": "Shadow Garden"
-            }
-        ],
-        "5": [
+            },
             {
                 "user_id": "1102373584627843113",
                 "username": "mello_au",
@@ -338,7 +434,9 @@
                 "display_name": "<@1459829054684266518>",
                 "current_streak": 1,
                 "server_name": "🌌 NEXUS LEGION 🌙"
-            },
+            }
+        ],
+        "6": [
             {
                 "user_id": "1481657005247692842",
                 "username": "exclusiveego",
@@ -359,9 +457,7 @@
                 "display_name": "kenze0095 (`1436128502092005459`)",
                 "current_streak": 1,
                 "server_name": "S Y G × Ninja server"
-            }
-        ],
-        "6": [
+            },
             {
                 "user_id": "1494586518646423654",
                 "username": "drcoconut23.",
@@ -389,6 +485,20 @@
                 "display_name": "<@1230695926583263273>",
                 "current_streak": 1,
                 "server_name": "✦ Rez: Among Us"
+            },
+            {
+                "user_id": "1184582726939050025",
+                "username": "vertex_hub",
+                "display_name": "<@1184582726939050025>",
+                "current_streak": 1,
+                "server_name": "Detective's list"
+            },
+            {
+                "user_id": "1456951329632030782",
+                "username": "iamitachi_07",
+                "display_name": "<@1456951329632030782>",
+                "current_streak": 1,
+                "server_name": "𝐘𝐮𝐦𝐦𝐲 𝐋𝐚𝐧𝐝"
             }
         ],
         "7": [],
