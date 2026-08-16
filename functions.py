@@ -28,6 +28,7 @@ import random
 import discord
 import asyncio
 import datetime
+import time
 
 active_1v1_lobbies = {}
 active_1v1_matches = {}   # channel_id -> match data
@@ -514,15 +515,37 @@ def is_reaction_allowed(value, guild=None, is_global=False):
         return value in load_allowed_emoji_list()
     return bool(guild and guild.get_emoji(emoji_id))
 
+COOLDOWN_PATTERN = re.compile(
+    r"^\s*(\d+(?:\.\d+)?)\s*"
+    r"(s|sec|secs|second|seconds|m|min|mins|minute|minutes|h|hr|hrs|hour|hours)\s*$",
+    re.IGNORECASE,
+)
+COOLDOWN_MULTIPLIERS = {
+    "s": 1, "sec": 1, "secs": 1, "second": 1, "seconds": 1,
+    "m": 60, "min": 60, "mins": 60, "minute": 60, "minutes": 60,
+    "h": 3600, "hr": 3600, "hrs": 3600, "hour": 3600, "hours": 3600,
+}
+
+
+def is_valid_cooldown(cooldown_str: str) -> bool:
+    """Return True for blank cooldowns or supported seconds/minutes/hours values."""
+    if cooldown_str is None or not str(cooldown_str).strip():
+        return True
+    return COOLDOWN_PATTERN.fullmatch(str(cooldown_str)) is not None
+
+
 def parse_cooldown(cooldown_str: str):
-    if not cooldown_str:
+    """Convert 2s/2seconds/2m/2hours into a number of seconds."""
+    if cooldown_str is None or not str(cooldown_str).strip():
         return 0
-    s = cooldown_str.lower().strip()
-    try:
-        num = int(''.join(filter(str.isdigit, s)))
-        return num if num > 0 else 0
-    except:
+
+    match = COOLDOWN_PATTERN.fullmatch(str(cooldown_str))
+    if not match:
         return 0
+
+    amount = float(match.group(1))
+    seconds = amount * COOLDOWN_MULTIPLIERS[match.group(2).lower()]
+    return int(seconds) if seconds.is_integer() else seconds
 
 def add_auto_response(trigger: str, reply: str, matchmode: str = "contains", 
                      react: str = None, channel: str = None, cooldown: str = None, 
@@ -596,11 +619,23 @@ def edit_auto_response(old_trigger: str, new_trigger: str = None, reply: str = N
 def get_all_auto_responses():
     return load_auto_responses()
 
+_AUTORESPONDER_COOLDOWNS = {}
+
+
 def check_cooldown(guild_id: str, trigger: str):
-    """Simple cooldown check using JSON (not ideal but per your request)"""
+    """Allow a matched trigger once per configured interval for each server."""
     data = load_auto_responses()
-    cooldown = data.get(trigger.lower(), {}).get("cooldown", 0)
+    trigger_key = trigger.lower().strip()
+    cooldown = float(data.get(trigger_key, {}).get("cooldown", 0) or 0)
     if cooldown <= 0:
         return True
 
+    now = time.monotonic()
+    cooldown_key = (str(guild_id), trigger_key)
+    last_triggered = _AUTORESPONDER_COOLDOWNS.get(cooldown_key)
+
+    if last_triggered is not None and now - last_triggered < cooldown:
+        return False
+
+    _AUTORESPONDER_COOLDOWNS[cooldown_key] = now
     return True

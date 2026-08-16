@@ -420,9 +420,6 @@ async def on_message(message):
             if target_channel and str(message.channel.id) != target_channel:
                 continue
 
-            if not check_cooldown(str(message.guild.id), trigger):
-                continue
-
             matchmode = data.get("matchmode", "contains")
             match = False
 
@@ -436,6 +433,8 @@ async def on_message(message):
                 match = trigger in content_lower
 
             if match:
+                if not check_cooldown(str(message.guild.id), trigger):
+                    continue
                 if data.get("response"):
                     await message.channel.send(data["response"])
                 if data.get("react"):

@@ -76,6 +76,11 @@ class AutoresponderCog(commands.Cog):
         if action == "add":
             if not trigger or not reply:
                 return await interaction.response.send_message("❌ Need `trigger` + `reply`", ephemeral=True)
+            if not is_valid_cooldown(cooldown):
+                return await interaction.response.send_message(
+                    "❌ Cooldown must use seconds, minutes, or hours, for example `2s`, `2minutes`, or `1hour`.",
+                    ephemeral=True,
+                )
 
             is_global = global_server if is_admin(interaction.user.id, interaction.guild, check_global=True) else False
             if react:
@@ -107,6 +112,11 @@ class AutoresponderCog(commands.Cog):
         elif action == "edit":
             if not trigger:
                 return await interaction.response.send_message("❌ Need current trigger to locate the dataset entry.", ephemeral=True)
+            if not is_valid_cooldown(cooldown):
+                return await interaction.response.send_message(
+                    "❌ Cooldown must use seconds, minutes, or hours, for example `2s`, `2minutes`, or `1hour`.",
+                    ephemeral=True,
+                )
 
             all_responses = get_all_auto_responses()
             if trigger.lower().strip() in all_responses:
