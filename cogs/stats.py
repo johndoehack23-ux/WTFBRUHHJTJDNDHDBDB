@@ -18,7 +18,7 @@ emojis = {
 
 class StatsLeaderboardView(discord.ui.View):
     def __init__(self, bot, initial_interaction):
-        super().__init__(timeout=120)
+        super().__init__(timeout=180)
         self.bot = bot
         self.initial_interaction = initial_interaction
         self.mode = "stats"
@@ -29,24 +29,27 @@ class StatsLeaderboardView(discord.ui.View):
 
     def _build_global_entries(self):
         best_per_user = {}
-        data = load_json(LEADERBOARD_FILE, lambda: {"servers": {}})
-        for gid, users in data.get("servers", {}).items():
-            guild = self.bot.get_guild(int(gid))
-            server_name = guild.name if guild else "Unknown Server"
-            for uid, d in users.items():
-                current = d.get("current_streak", 0)
-                if current > 0:
-                    if uid not in best_per_user or current > best_per_user[uid]["current_streak"]:
-                        best_per_user[uid] = {
-                            "username": d.get("username", "Unknown"),
-                            "current_streak": current,
-                            "server_name": server_name,
-                        }
+        try:
+            data = load_json(LEADERBOARD_FILE, lambda: {"servers": {}})
+            for gid, users in data.get("servers", {}).items():
+                guild = self.bot.get_guild(int(gid))
+                server_name = guild.name if guild else "Unknown Server"
+                for uid, d in users.items():
+                    current = d.get("current_streak", 0)
+                    if current > 0:
+                        if uid not in best_per_user or current > best_per_user[uid]["current_streak"]:
+                            best_per_user[uid] = {
+                                "username": d.get("username", "Unknown"),
+                                "current_streak": current,
+                                "server_name": server_name,
+                            }
+        except:
+            pass
         return sorted(best_per_user.values(), key=lambda x: x["current_streak"], reverse=True)
 
     def build_stats_embed(self):
         try:
-            if self.initial_interaction.guild_id is None or is_admin(self.initial_interaction.user.id):
+            if getattr(self.initial_interaction, "guild_id", None) is None or is_admin(self.initial_interaction.user.id):
                 try:
                     stats_data = {}
                     if os.path.exists("stats.json"):
@@ -76,7 +79,7 @@ class StatsLeaderboardView(discord.ui.View):
 
         total_members = 0
         for guild in self.bot.guilds:
-            if guild.member_count is not None:
+            if getattr(guild, "member_count", None) is not None:
                 total_members += guild.member_count
 
         embed = discord.Embed(title=f"{emojis['statics']} Bot statistics.", color=0x2F3136)
@@ -132,11 +135,14 @@ class StatsLeaderboardView(discord.ui.View):
 
     def build_servers_embed(self):
         embed = discord.Embed(title=f"{emojis['storage']} Connected Servers List", color=0x2F3136)
-        server_names = [guild.name for guild in self.bot.guilds]
-        if server_names:
-            embed.description = "**Servers:**\n" + "\n".join(server_names)
-        else:
-            embed.description = "The bot is not currently in any servers."
+        try:
+            server_names = [guild.name for guild in self.bot.guilds]
+            if server_names:
+                embed.description = "**Servers:**\n" + "\n".join(server_names)
+            else:
+                embed.description = "The bot is not currently in any servers."
+        except:
+            embed.description = "Could not load server list."
         return embed
 
     def update_buttons(self):
@@ -175,45 +181,83 @@ class StatsLeaderboardView(discord.ui.View):
             self.add_item(back_btn)
 
     async def lb_callback(self, interaction: discord.Interaction):
-        self.entries = self._build_global_entries()
-        self.total_pages = max(1, math.ceil(len(self.entries) / ENTRIES_PER_PAGE))
-        self.current_page = 0
-        self.mode = "leaderboard"
-        self.update_buttons()
-        await interaction.response.edit_message(embed=self.build_lb_embed(), view=self)
+        try:
+            self.entries = self._build_global_entries()
+            self.total_pages = max(1, math.ceil(len(self.entries) / ENTRIES_PER_PAGE))
+            self.current_page = 0
+            self.mode = "leaderboard"
+            self.update_buttons()
+            await interaction.response.edit_message(embed=self.build_lb_embed(), view=self)
+        except Exception as e:
+            try:
+                await interaction.response.send_message(f"Leaderboard error: `{e}`", ephemeral=True)
+            except:
+                pass
 
     async def srv_callback(self, interaction: discord.Interaction):
-        if not is_op(interaction.user.id):
-            self.mode = "no_permission"
+        try:
+            if not is_op(interaction.user.id):
+                self.mode = "no_permission"
+                self.update_buttons()
+                await interaction.response.edit_message(
+                    content="You do not have permission to enter here",
+                    embed=None,
+                    view=self
+                )
+                return
+
+            self.mode = "servers"
             self.update_buttons()
-            return await interaction.response.edit_message(
-                content="You do not have permission to enter here",
-                embed=None,
-                view=self
-            )
-        self.mode = "servers"
-        self.update_buttons()
-        await interaction.response.edit_message(embed=self.build_servers_embed(), view=self)
+            await interaction.response.edit_message(embed=self.build_servers_embed(), view=self)
+        except Exception as e:
+            try:
+                await interaction.response.send_message(f"Servers error: `{e}`", ephemeral=True)
+            except:
+                pass
 
     async def prev_callback(self, interaction: discord.Interaction):
-        self.current_page = max(0, self.current_page - 1)
-        self.update_buttons()
-        await interaction.response.edit_message(embed=self.build_lb_embed(), view=self)
+        try:
+            self.current_page = max(0, self.current_page - 1)
+            self.update_buttons()
+            await interaction.response.edit_message(embed=self.build_lb_embed(), view=self)
+        except Exception as e:
+            try:
+                await interaction.response.send_message(f"Page error: `{e}`", ephemeral=True)
+            except:
+                pass
 
     async def next_callback(self, interaction: discord.Interaction):
-        self.current_page = min(self.total_pages - 1, self.current_page + 1)
-        self.update_buttons()
-        await interaction.response.edit_message(embed=self.build_lb_embed(), view=self)
+        try:
+            self.current_page = min(self.total_pages - 1, self.current_page + 1)
+            self.update_buttons()
+            await interaction.response.edit_message(embed=self.build_lb_embed(), view=self)
+        except Exception as e:
+            try:
+                await interaction.response.send_message(f"Page error: `{e}`", ephemeral=True)
+            except:
+                pass
 
     async def back_to_stats(self, interaction: discord.Interaction):
-        self.mode = "stats"
-        self.update_buttons()
-        await interaction.response.edit_message(embed=self.build_stats_embed(), view=self)
+        try:
+            self.mode = "stats"
+            self.update_buttons()
+            await interaction.response.edit_message(embed=self.build_stats_embed(), view=self)
+        except Exception as e:
+            try:
+                await interaction.response.send_message(f"Back error: `{e}`", ephemeral=True)
+            except:
+                pass
 
     async def back_to_stats_clear(self, interaction: discord.Interaction):
-        self.mode = "stats"
-        self.update_buttons()
-        await interaction.response.edit_message(content=None, embed=self.build_stats_embed(), view=self)
+        try:
+            self.mode = "stats"
+            self.update_buttons()
+            await interaction.response.edit_message(content=None, embed=self.build_stats_embed(), view=self)
+        except Exception as e:
+            try:
+                await interaction.response.send_message(f"Back error: `{e}`", ephemeral=True)
+            except:
+                pass
 
     async def on_timeout(self):
         try:
