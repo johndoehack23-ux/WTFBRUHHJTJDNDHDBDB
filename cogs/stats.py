@@ -86,20 +86,26 @@ class StatsLeaderboardView(discord.ui.View):
         return sorted(best_per_user.values(), key=lambda x: x["current_streak"], reverse=True)
 
     def build_stats_embed(self):
-        stats_data = safe_load_json("stats.json", {"user_apps": []})
-        apps_count = len(stats_data.get("user_apps", []))
+    stats_data = safe_load_json("stats.json", {"user_apps": []})
+    apps_count = len(stats_data.get("user_apps", []))
 
-        apps_display = str(apps_count) if apps_count > 0 else "SOON"
-        server_count = len(self.bot.guilds)
-        total_members = sum(getattr(g, "member_count", 0) or 0 for g in self.bot.guilds)
+    apps_display = str(apps_count) if apps_count > 0 else "SOON"
+    server_count = len(self.bot.guilds)
+    total_members = sum(getattr(g, "member_count", 0) or 0 for g in self.bot.guilds)
 
-        embed = discord.Embed(title=f"{emojis['statics']} Bot Statistics", color=0x2F3136)
-        embed.description = (
-            f"{emojis['storage']} **Total Servers:** `{server_count}`\n"
-            f"{emojis['apps']} **Total User Apps:** `{apps_display}`\n"
-            f"{emojis['members']} **Total Members:** `{total_members}`"
-        )
-        return embed
+    # Use .get() to prevent KeyError crashes if the key isn't found
+    statics_emoji = emojis.get("statics", "📊")
+    storage_emoji = emojis.get("storage", "📦")
+    apps_emoji = emojis.get("apps", "📱")
+    members_emoji = emojis.get("members", "👥")
+
+    embed = discord.Embed(title=f"{statics_emoji} Bot Statistics", color=0x2F3136)
+    embed.description = (
+        f"{storage_emoji} **Total Servers:** `{server_count}`\n"
+        f"{apps_emoji} **Total User Apps:** `{apps_display}`\n"
+        f"{members_emoji} **Total Members:** `{total_members}`"
+    )
+    return embed
 
     def build_lb_embed(self):
         start = self.current_page * ENTRIES_PER_PAGE
