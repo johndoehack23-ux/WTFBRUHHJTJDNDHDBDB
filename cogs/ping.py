@@ -14,12 +14,8 @@ class PingCog(commands.Cog):
         prefix = stats.get("prefix", ".")
         latency = round(self.bot.latency * 1000)
 
-        embed = discord.Embed(title="🏓 Pong!", color=0x2f3136)
-        embed.add_field(name="Latency", value=f"`{latency}ms`", inline=True)
-        embed.add_field(name="Prefix", value=f"`{prefix}`", inline=True)
-        embed.add_field(name="Global Prefix", value=f"`{prefix}`", inline=True)
-        embed.add_field(name="Bot", value=f"{self.bot.user.name}", inline=True)
-        embed.add_field(name="Bot ID", value=f"`{self.bot.user.id}`", inline=True)
+        embed = discord.Embed(title="Pong", color=0x2f3136)
+        embed.add_field(name=f"Latency: `{latency}ms`", value=f"**{ctx.author}**",inline=True)
         await ctx.send(embed=embed)
 
     @app_commands.command(name="ping", description="Check the bot's latency and prefix info")
