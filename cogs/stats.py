@@ -13,6 +13,7 @@ except ImportError:
 LEADERBOARD_FILE = globals().get("LEADERBOARD_FILE", "leaderboard.json")
 ENTRIES_PER_PAGE = 10
 
+# Your custom Discord emojis
 emojis = {
     "statics": "<:Statics:1516148634675187883>",
     "storage": "<:Storage:1516148728845828116>",
@@ -90,16 +91,11 @@ class StatsLeaderboardView(discord.ui.View):
         server_count = len(self.bot.guilds)
         total_members = sum(getattr(g, "member_count", 0) or 0 for g in self.bot.guilds)
 
-        statics_emoji = emojis.get("statics", "📊")
-        storage_emoji = emojis.get("storage", "📦")
-        apps_emoji = emojis.get("apps", "📱")
-        members_emoji = emojis.get("members", "👥")
-
-        embed = discord.Embed(title=f"{statics_emoji} Bot Statistics", color=0x2F3136)
+        embed = discord.Embed(title=f"{emojis['statics']} Bot Statistics", color=0x2F3136)
         embed.description = (
-            f"{storage_emoji} **Total Servers:** `{server_count}`\n"
-            f"{apps_emoji} **Total User Apps:** `{apps_display}`\n"
-            f"{members_emoji} **Total Members:** `{total_members}`"
+            f"{emojis['storage']} **Total Servers:** `{server_count}`\n"
+            f"{emojis['apps']} **Total User Apps:** `{apps_display}`\n"
+            f"{emojis['members']} **Total Members:** `{total_members}`"
         )
         return embed
 
@@ -142,7 +138,7 @@ class StatsLeaderboardView(discord.ui.View):
         return embed
 
     def build_servers_embed(self):
-        embed = discord.Embed(title=f"{emojis.get('storage', '📦')} Connected Servers List", color=0x2F3136)
+        embed = discord.Embed(title=f"{emojis['storage']} Connected Servers List", color=0x2F3136)
         server_names = [g.name for g in self.bot.guilds]
         
         if not server_names:
