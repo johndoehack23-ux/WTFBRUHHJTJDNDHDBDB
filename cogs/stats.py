@@ -5,15 +5,12 @@ import math
 import json
 import os
 
-# Import custom functions; provide safe fallbacks for critical definitions
 try:
     from functions import *
 except ImportError:
     pass
 
-# Ensure LEADERBOARD_FILE exists if not defined in functions.py
 LEADERBOARD_FILE = globals().get("LEADERBOARD_FILE", "leaderboard.json")
-
 ENTRIES_PER_PAGE = 10
 
 emojis = {
@@ -55,7 +52,7 @@ def record_user_app(user_id: int):
 
 class StatsLeaderboardView(discord.ui.View):
     def __init__(self, bot, initial_interaction: discord.Interaction):
-        super().__init__(timeout=300)  # 5 minutes
+        super().__init__(timeout=300)
         self.bot = bot
         self.initial_interaction = initial_interaction
         self.message: discord.Message | None = None
@@ -86,26 +83,25 @@ class StatsLeaderboardView(discord.ui.View):
         return sorted(best_per_user.values(), key=lambda x: x["current_streak"], reverse=True)
 
     def build_stats_embed(self):
-    stats_data = safe_load_json("stats.json", {"user_apps": []})
-    apps_count = len(stats_data.get("user_apps", []))
+        stats_data = safe_load_json("stats.json", {"user_apps": []})
+        apps_count = len(stats_data.get("user_apps", []))
 
-    apps_display = str(apps_count) if apps_count > 0 else "SOON"
-    server_count = len(self.bot.guilds)
-    total_members = sum(getattr(g, "member_count", 0) or 0 for g in self.bot.guilds)
+        apps_display = str(apps_count) if apps_count > 0 else "SOON"
+        server_count = len(self.bot.guilds)
+        total_members = sum(getattr(g, "member_count", 0) or 0 for g in self.bot.guilds)
 
-    # Use .get() to prevent KeyError crashes if the key isn't found
-    statics_emoji = emojis.get("statics", "📊")
-    storage_emoji = emojis.get("storage", "📦")
-    apps_emoji = emojis.get("apps", "📱")
-    members_emoji = emojis.get("members", "👥")
+        statics_emoji = emojis.get("statics", "📊")
+        storage_emoji = emojis.get("storage", "📦")
+        apps_emoji = emojis.get("apps", "📱")
+        members_emoji = emojis.get("members", "👥")
 
-    embed = discord.Embed(title=f"{statics_emoji} Bot Statistics", color=0x2F3136)
-    embed.description = (
-        f"{storage_emoji} **Total Servers:** `{server_count}`\n"
-        f"{apps_emoji} **Total User Apps:** `{apps_display}`\n"
-        f"{members_emoji} **Total Members:** `{total_members}`"
-    )
-    return embed
+        embed = discord.Embed(title=f"{statics_emoji} Bot Statistics", color=0x2F3136)
+        embed.description = (
+            f"{storage_emoji} **Total Servers:** `{server_count}`\n"
+            f"{apps_emoji} **Total User Apps:** `{apps_display}`\n"
+            f"{members_emoji} **Total Members:** `{total_members}`"
+        )
+        return embed
 
     def build_lb_embed(self):
         start = self.current_page * ENTRIES_PER_PAGE
@@ -146,14 +142,13 @@ class StatsLeaderboardView(discord.ui.View):
         return embed
 
     def build_servers_embed(self):
-        embed = discord.Embed(title=f"{emojis['storage']} Connected Servers List", color=0x2F3136)
+        embed = discord.Embed(title=f"{emojis.get('storage', '📦')} Connected Servers List", color=0x2F3136)
         server_names = [g.name for g in self.bot.guilds]
         
         if not server_names:
             embed.description = "No connected servers found."
             return embed
 
-        # Safely split server names to prevent Discord 4096-character embed limit crashes
         formatted_list = []
         current_len = 0
         for name in server_names:
@@ -198,7 +193,6 @@ class StatsLeaderboardView(discord.ui.View):
             self.add_item(back)
 
     async def safe_edit(self, interaction: discord.Interaction, **kwargs):
-        """Safely updates the message content/embeds without throwing interaction state errors."""
         try:
             if not interaction.response.is_done():
                 await interaction.response.edit_message(**kwargs)
@@ -220,7 +214,6 @@ class StatsLeaderboardView(discord.ui.View):
         await self.safe_edit(interaction, content=None, embed=self.build_lb_embed(), view=self)
 
     async def srv_callback(self, interaction: discord.Interaction):
-        # Check permissions using functions.py check if available
         is_operator = globals().get("is_op", lambda uid: True)(interaction.user.id)
         
         if not is_operator:
@@ -240,7 +233,7 @@ class StatsLeaderboardView(discord.ui.View):
         await self.safe_edit(interaction, embed=self.build_lb_embed(), view=self)
 
     async def next_callback(self, interaction: discord.Interaction):
-        self.current_page = min(self.total_pages - 1, self.current_page + 1)
+        self.current_page = min(self.total_pages - 1, self.total_pages + 1)
         self.update_buttons()
         await self.safe_edit(interaction, embed=self.build_lb_embed(), view=self)
 
@@ -250,7 +243,6 @@ class StatsLeaderboardView(discord.ui.View):
         await self.safe_edit(interaction, content=None, embed=self.build_stats_embed(), view=self)
 
     async def on_timeout(self):
-        """Disables all UI components when the 5-minute timer expires."""
         for item in self.children:
             item.disabled = True
         try:
@@ -268,14 +260,12 @@ class StatsCog(commands.Cog):
 
     @app_commands.command(name="stats", description="Displays the bot's current statistics")
     async def show_stats(self, interaction: discord.Interaction):
-        # Track user app stats safely before rendering
         record_user_app(interaction.user.id)
 
         view = StatsLeaderboardView(self.bot, interaction)
         embed = view.build_stats_embed()
         
         await interaction.response.send_message(embed=embed, view=view)
-        # Store message reference to safely handle view timeouts later
         view.message = await interaction.original_response()
 
 
