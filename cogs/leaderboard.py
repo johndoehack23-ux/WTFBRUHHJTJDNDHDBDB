@@ -15,8 +15,13 @@ import certifi
 from pymongo import MongoClient
 
 MONGO_URI = os.environ.get("MONGO_URI")
-cluster = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
-db = cluster["WordleBotDB"]
+cluster = MongoClient(
+    MONGO_URI,
+    tls=True,
+    tlsCAFile=certifi.where(),
+    tlsAllowInvalidCertificates=False,
+    serverSelectionTimeoutMS=5000 # Prevents blocking the bot for 30s
+)
 
 leaderboard_col = db["wordle_leaderboards"]
 deleted_col = db["deleted_leaderboards"]
