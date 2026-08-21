@@ -28,6 +28,12 @@ leaderboard_col = db["wordle_leaderboards"]
 deleted_col = db["deleted_leaderboards"]
 page_cache_col = db["page_cache"]
 
+# Before (Causing the crash):
+user_data = db.users.find()
+
+# After (Fixed):
+user_data = self.bot.db.users.find()  # or self.db.users.find()
+
 def generate_undo_code():
     chars = string.ascii_lowercase + string.digits
     return "".join(secrets.choice(chars) for _ in range(5))
