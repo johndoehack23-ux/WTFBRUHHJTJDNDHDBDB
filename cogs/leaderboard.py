@@ -13,7 +13,6 @@ MAX_LEADERBOARD_PAGES = 1000
 
 import certifi
 from pymongo import MongoClient
-from database import db  # Adjust the import path to where your database connection lives
 
 MONGO_URI = os.environ.get("MONGO_URI")
 cluster = MongoClient(
