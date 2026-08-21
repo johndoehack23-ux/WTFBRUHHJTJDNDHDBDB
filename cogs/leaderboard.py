@@ -234,10 +234,12 @@ class LeaderboardView(discord.ui.View):
         ep.callback = ep_cb
         self.add_item(ep)
 
-    async def on_timeout(self):
+async def on_timeout(self):
         for item in self.children:
             item.disabled = True
-            class LeaderboardCog(commands.Cog):
+
+
+class LeaderboardCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.leaderboard_col = self.bot.db["wordle_leaderboards"]
