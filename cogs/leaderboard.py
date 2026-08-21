@@ -1,22 +1,35 @@
-import discord
-from discord.ext import commands
-from discord import app_commands
+import os
 import math
-from functions import *
-
-ENTRIES_PER_PAGE = 10
-MAX_LEADERBOARD_PAGES = 1000
-LEADERBOARD_PAGE_FILE = "wordle_leaderboards.json"
-LEADERBOARD_PAGE_KEYS = [str(page) for page in range(1, 11)]
-
 import secrets
 import string
 import datetime
+import discord
+from discord.ext import commands
+from discord import app_commands
+from pymongo import MongoClient
+
+# Import your custom configuration checks from functions.py
+from functions import is_admin, is_op, is_maintenance_mode, load_stats
+
+ENTRIES_PER_PAGE = 10
+MAX_LEADERBOARD_PAGES = 1000
+
+# ─── MONGODB CONNECTION INITIALIZATION ───
+MONGO_URI = os.environ.get("MONGO_URI")
+cluster = MongoClient(MONGO_URI)
+db = cluster["WordleBotDB"]
+
+# Database collections replacing your JSON files
+leaderboard_col = db["wordle_leaderboards"]
+deleted_col = db["deleted_leaderboards"]
+page_cache_col = db["page_cache"]
+
 
 def generate_undo_code():
     """Generates a random 5-character string (e.g., 'iq04b')"""
     chars = string.ascii_lowercase + string.digits
     return "".join(secrets.choice(chars) for _ in range(5))
+
 
 class LeaderboardResetConfirmView(discord.ui.View):
     def __init__(self, ctx, scope: str):
@@ -34,62 +47,47 @@ class LeaderboardResetConfirmView(discord.ui.View):
         if self.scope == "server" and not (is_admin(interaction.user.id, self.ctx.guild) or is_op(interaction.user.id)):
             return await interaction.response.send_message("You do not have permission to use this command", ephemeral=True)
 
-        file_target = "wordle_leaderboard.json"
-        deleted_file = "wordle_deletedboard.json"
-        
-        data = load_json(file_target, lambda: {"servers": {}})
-        deleted_data = load_json(deleted_file, lambda: {"server": {}, "global": {}})
-
-        now_str = datetime.date.today().isoformat()  # e.g., 2026-06-27
+        now_str = datetime.date.today().isoformat()
         undo_code = generate_undo_code()
 
         if self.scope == "global":
+            all_documents = list(leaderboard_col.find({}, {"_id": 0}))
             server_names = []
-            for gid in data.get("servers", {}).keys():
-                guild = self.ctx.bot.get_guild(int(gid))
+            for doc in all_documents:
+                gid = doc.get("guild_id")
+                guild = self.ctx.bot.get_guild(int(gid)) if gid else None
                 server_names.append(guild.name if guild else f"Unknown Server ({gid})")
             
             if not server_names:
                 server_names = ["No Active Servers"]
 
-            # Save full global data mapping to the persistent deleted JSON file
-            if "global" not in deleted_data:
-                deleted_data["global"] = {}
-                
-            deleted_data["global"][undo_code] = {
-                "backup_data": data.get("servers", {}),
-                "server_names": server_names,
-                "date": now_str
-            }
-            save_json(deleted_file, deleted_data)
+            deleted_col.update_one(
+                {"_id": "global_history"},
+                {"$set": {f"global.{undo_code}": {
+                    "backup_data": all_documents,
+                    "server_names": server_names,
+                    "date": now_str
+                }}},
+                upsert=True
+            )
 
-            # Wipe board file entirely
-            data = {"servers": {}}
-            save_json(file_target, data)
+            leaderboard_col.delete_many({})
             await interaction.response.edit_message(content="🧹 **Global** leaderboard has been completely reset.", embed=None, view=None)
         else:
-            if "servers" not in data:
-                data["servers"] = {}
-            
             gid_str = str(self.ctx.guild.id)
-            current_server_data = data["servers"].get(gid_str, {})
+            server_docs = list(leaderboard_col.find({"guild_id": gid_str}, {"_id": 0}))
 
-            if "server" not in deleted_data:
-                deleted_data["server"] = {}
-            if gid_str not in deleted_data["server"]:
-                deleted_data["server"][gid_str] = {}
+            deleted_col.update_one(
+                {"_id": "server_history"},
+                {"$set": {f"server.{gid_str}.{undo_code}": {
+                    "backup_data": server_docs,
+                    "server_name": self.ctx.guild.name,
+                    "date": now_str
+                }}},
+                upsert=True
+            )
 
-            # Save specific server mapping into persistent deleted JSON file
-            deleted_data["server"][gid_str][undo_code] = {
-                "backup_data": current_server_data,
-                "server_name": self.ctx.guild.name,
-                "date": now_str
-            }
-            save_json(deleted_file, deleted_data)
-
-            # Reset current target server
-            data["servers"][gid_str] = {}
-            save_json(file_target, data)
+            leaderboard_col.delete_many({"guild_id": gid_str})
             await interaction.response.edit_message(content="🧹 **Server** leaderboard has been reset.", embed=None, view=None)
         
         self.stop()
@@ -161,7 +159,6 @@ class LeaderboardView(discord.ui.View):
             embed.description = "No entries found."
             return embed
 
-        # Load emoji configuration
         import json
         streak_emojis = {}
         try:
@@ -175,7 +172,6 @@ class LeaderboardView(discord.ui.View):
             username = entry.get("display_name") or entry.get("username", "Unknown")
             current = entry.get("current_streak", 0)
             
-            # Determine the streak emoji when streak is greater than 0
             streak_emoji = ""
             if current > 0:
                 for key, val in streak_emojis.items():
@@ -190,13 +186,9 @@ class LeaderboardView(discord.ui.View):
 
             if self.mode == "global":
                 server_name = entry.get("server_name", "Unknown Server")
-                lines.append(
-                    f"**{i}.** {username} — Streak: **{current}**{streak_emoji} — {server_name}"
-                )
+                lines.append(f"**{i}.** {username} — Streak: **{current}**{streak_emoji} — {server_name}")
             else:
-                lines.append(
-                    f"**{i}.** {username} — Streak: **{current}**{streak_emoji}"
-                )
+                lines.append(f"**{i}.** {username} — Streak: **{current}**{streak_emoji}")
 
         embed.description = "\n".join(lines)
         return embed
@@ -204,7 +196,6 @@ class LeaderboardView(discord.ui.View):
     def update_buttons(self):
         self.clear_items()
 
-        # ── Rows 0-1: direct page buttons 1-10 ──
         for p in range(1, 11):
             is_cur = (self.current_page == p - 1)
             b = discord.ui.Button(
@@ -220,26 +211,14 @@ class LeaderboardView(discord.ui.View):
             b.callback = _pcb
             self.add_item(b)
 
-        # ── Row 2: << < > >> Select a page ──
-        jump_back = discord.ui.Button(
-            label="<<",
-            style=discord.ButtonStyle.secondary,
-            disabled=(self.current_page < 10),
-            row=2
-        )
+        jump_back = discord.ui.Button(label="<<", style=discord.ButtonStyle.secondary, disabled=(self.current_page < 10), row=2)
         async def jump_back_cb(interaction: discord.Interaction, v=self):
             v.current_page = max(0, v.current_page - 10)
             v.update_buttons()
             await interaction.response.edit_message(embed=v.build_embed(), view=v)
         jump_back.callback = jump_back_cb
         self.add_item(jump_back)
-
-        prev = discord.ui.Button(
-            label="<",
-            style=discord.ButtonStyle.secondary,
-            disabled=(self.current_page == 0),
-            row=2
-        )
+        prev = discord.ui.Button(label="<", style=discord.ButtonStyle.secondary, disabled=(self.current_page == 0), row=2)
         async def prev_cb(interaction: discord.Interaction, v=self):
             v.current_page = max(0, v.current_page - 1)
             v.update_buttons()
@@ -247,12 +226,7 @@ class LeaderboardView(discord.ui.View):
         prev.callback = prev_cb
         self.add_item(prev)
 
-        nxt = discord.ui.Button(
-            label=">",
-            style=discord.ButtonStyle.secondary,
-            disabled=(self.current_page >= self.total_pages - 1),
-            row=2
-        )
+        nxt = discord.ui.Button(label=">", style=discord.ButtonStyle.secondary, disabled=(self.current_page >= self.total_pages - 1), row=2)
         async def next_cb(interaction: discord.Interaction, v=self):
             v.current_page = min(v.total_pages - 1, v.current_page + 1)
             v.update_buttons()
@@ -260,12 +234,7 @@ class LeaderboardView(discord.ui.View):
         nxt.callback = next_cb
         self.add_item(nxt)
 
-        jump_fwd = discord.ui.Button(
-            label=">>",
-            style=discord.ButtonStyle.secondary,
-            disabled=(self.current_page >= self.total_pages - 10),
-            row=2
-        )
+        jump_fwd = discord.ui.Button(label=">>", style=discord.ButtonStyle.secondary, disabled=(self.current_page >= self.total_pages - 10), row=2)
         async def jump_fwd_cb(interaction: discord.Interaction, v=self):
             v.current_page = min(self.total_pages - 1, v.current_page + 10)
             v.update_buttons()
@@ -273,11 +242,7 @@ class LeaderboardView(discord.ui.View):
         jump_fwd.callback = jump_fwd_cb
         self.add_item(jump_fwd)
 
-        ep = discord.ui.Button(
-            label="Select a page (1-1000)",
-            style=discord.ButtonStyle.secondary,
-            row=2
-        )
+        ep = discord.ui.Button(label="Select a page (1-1000)", style=discord.ButtonStyle.secondary, row=2)
         async def ep_cb(interaction: discord.Interaction, v=self):
             await interaction.response.send_modal(PageModal(v))
         ep.callback = ep_cb
@@ -293,125 +258,108 @@ class LeaderboardCog(commands.Cog):
         self.bot = bot
 
     def _display_user(self, user_id, username, guild=None):
-        """Resolve a stored user ID to a mention/name when possible."""
         member = guild.get_member(int(user_id)) if guild and str(user_id).isdigit() else None
-        user = member or (
-            self.bot.get_user(int(user_id))
-            if str(user_id).isdigit()
-            else None
-        )
+        user = member or (self.bot.get_user(int(user_id)) if str(user_id).isdigit() else None)
         if user:
             return user.mention
         return f"{username} (`{user_id}`)"
 
     def _sync_page_cache(self, scope, entries, guild_id=None):
-        """Keep numbered server/global page buckets available for inspection."""
-        data = load_json(LEADERBOARD_PAGE_FILE, lambda: {"servers": {}, "global": {}})
-        data.setdefault("servers", {})
-        data.setdefault("global", {})
+        cache_id = f"server_{guild_id}" if scope == "server" else "global"
+        page_map = {}
 
-        if scope == "server":
-            page_map = data["servers"].setdefault(str(guild_id), {})
-        else:
-            page_map = data["global"]
+        for page_num in range(1, 11):
+            start = (page_num - 1) * ENTRIES_PER_PAGE
+            page_map[str(page_num)] = entries[start:start + ENTRIES_PER_PAGE]
 
-        for page_key in LEADERBOARD_PAGE_KEYS:
-            page_number = int(page_key)
-            start = (page_number - 1) * ENTRIES_PER_PAGE
-            page_map[page_key] = entries[start:start + ENTRIES_PER_PAGE]
-
-        save_json(LEADERBOARD_PAGE_FILE, data)
+        page_cache_col.update_one({"_id": cache_id}, {"$set": {"pages": page_map}}, upsert=True)
 
     def _build_global_entries(self):
+        cursor = leaderboard_col.find({"current_streak": {"$gt": 0}}).sort("current_streak", -1)
+        
         best_per_user = {}
-        data = load_json(LEADERBOARD_FILE, lambda: {"servers": {}})
-        for gid, users in data.get("servers", {}).items():
-            guild = self.bot.get_guild(int(gid))
+        for doc in cursor:
+            uid = doc.get("user_id")
+            current = doc.get("current_streak", 0)
+            gid = doc.get("guild_id")
+            guild = self.bot.get_guild(int(gid)) if gid else None
             server_name = guild.name if guild else "Unknown Server"
-            for uid, d in users.items():
-                current = d.get("current_streak", 0)
-                # FIXED: Strictly ensures only streaks GREATER THAN 0 can make it to global leaderboard
-                if current > 0:
-                    if uid not in best_per_user or current > best_per_user[uid]["current_streak"]:
-                        display_name = self._display_user(uid, d.get("username", "Unknown"), guild)
-                        best_per_user[uid] = {
-                            "user_id": uid,
-                            "username": d.get("username", "Unknown"),
-                            "display_name": display_name,
-                            "current_streak": current,
-                            "server_name": server_name
-                        }
-        entries = sorted(best_per_user.values(), key=lambda x: x["current_streak"], reverse=True)
-        return entries
+
+            if uid not in best_per_user or current > best_per_user[uid]["current_streak"]:
+                display_name = self._display_user(uid, doc.get("username", "Unknown"), guild)
+                best_per_user[uid] = {
+                    "user_id": uid,
+                    "username": doc.get("username", "Unknown"),
+                    "display_name": display_name,
+                    "current_streak": current,
+                    "server_name": server_name
+                }
+        
+        return sorted(best_per_user.values(), key=lambda x: x["current_streak"], reverse=True)
 
     def _build_server_entries(self, guild_id):
-        data = load_json(LEADERBOARD_FILE, lambda: {"servers": {}})
-        srv = data.get("servers", {}).get(str(guild_id), {})
+        cursor = leaderboard_col.find({
+            "guild_id": str(guild_id), 
+            "current_streak": {"$gt": 0}
+        }).sort("current_streak", -1)
+
         entries = []
-        for uid, d in srv.items():
-            current = d.get("current_streak", 0)
-            # FIXED: Strictly ensures only streaks GREATER THAN 0 can make it to local server leaderboard
-            if current > 0:
-                entries.append({
-                    "user_id": uid,
-                    "username": d.get("username", "Unknown"),
-                    "display_name": self._display_user(uid, d.get("username", "Unknown"), self.bot.get_guild(int(guild_id))),
-                    "current_streak": current,
-                })
-        entries.sort(key=lambda x: x["current_streak"], reverse=True)
+        guild = self.bot.get_guild(int(guild_id))
+        for doc in cursor:
+            uid = doc.get("user_id")
+            entries.append({
+                "user_id": uid,
+                "username": doc.get("username", "Unknown"),
+                "display_name": self._display_user(uid, doc.get("username", "Unknown"), guild),
+                "current_streak": doc.get("current_streak", 0),
+            })
         return entries
 
     @commands.group(name="streak", invoke_without_command=True)
     async def streak_group(self, ctx):
         await ctx.send("❓ **Usage:**\n`.streak set <@user> <number>`\n`.streak reset <@user>`")
+
     @streak_group.command(name="set")
     async def streak_set_prefix(self, ctx, user: discord.Member, num: int):
         if not is_admin(ctx.author.id):
             return await ctx.send("You do not have permission to use this command.")
 
-        data = load_json(LEADERBOARD_FILE, lambda: {"servers": {}})
         gid_str = str(ctx.guild.id)
-        if "servers" not in data:
-            data["servers"] = {}
-        if gid_str not in data["servers"]:
-            data["servers"][gid_str] = {}
+        uid_str = str(user.id)
+        doc_id = f"{gid_str}_{uid_str}"
 
-        srv = data["servers"][gid_str]
-        uid = str(user.id)
-        if uid not in srv:
-            srv[uid] = {"username": user.name, "current_streak": 0}
+        old_doc = leaderboard_col.find_one({"_id": doc_id})
+        old_streak = old_doc.get("current_streak", 0) if old_doc else 0
 
-        old_streak = srv[uid].get("current_streak", 0)
-        srv[uid]["current_streak"] = num
-        srv[uid]["username"] = user.name
-
-        save_json(LEADERBOARD_FILE, data)
+        leaderboard_col.update_one(
+            {"_id": doc_id},
+            {"$set": {
+                "guild_id": gid_str,
+                "user_id": uid_str,
+                "username": user.name,
+                "current_streak": num
+            }},
+            upsert=True
+        )
         await ctx.send(f"✅ Updated **{user.name}** streak: `{old_streak}` → `{num}`")
+
     @streak_group.command(name="reset")
     async def streak_reset_prefix(self, ctx, user: discord.Member):
         if not is_admin(ctx.author.id):
             return await ctx.send("You do not have permission to use this command.")
 
-        # Resets globally across all servers in the leaderboard file
-        data = load_json(LEADERBOARD_FILE, lambda: {"servers": {}})
-        modified = False
-        
-        for gid, users in data.get("servers", {}).items():
-            uid = str(user.id)
-            if uid in users:
-                users[uid]["current_streak"] = 0
-                modified = True
-                
-        if modified:
-            save_json(LEADERBOARD_FILE, data)
-        await ctx.send(f"Reset streak for {user.name}.")
+        uid_str = str(user.id)
+        result = leaderboard_col.update_many(
+            {"user_id": uid_str},
+            {"$set": {"current_streak": 0}}
+        )
+        await ctx.send(f"Reset streak for {user.name} across {result.modified_count} servers.")
 
     @commands.command(name="leaderboard", aliases=["lb"])
     async def lb(self, ctx, scope: str = "global"):
         if is_maintenance_mode() and not is_admin(ctx.author.id):
             return await ctx.send("🛠️ **Bot is under maintenance.**")
 
-        # Only allowed servers can access the leaderboard
         stats = load_stats()
         allowed = stats.get("allowed_servers", [])
         if str(ctx.guild.id) not in allowed:
@@ -439,25 +387,17 @@ class LeaderboardCog(commands.Cog):
     @commands.command(name="rlb", aliases=["resetleaderboard"])
     async def rlb(self, ctx, scope: str = "server", action: str = None, undo_string: str = None):
         scope = scope.lower().strip()
-        
         if scope not in ("server", "global"):
             return await ctx.send("❌ Usage: `.rlb server [undo] [code]` or `.rlb global [undo] [code]` (default: server)")
 
-        file_target = "wordle_leaderboard.json"
-        deleted_file = "wordle_deletedboard.json"
-
-        # --- DYNAMIC BACKUP LOGIC ROUTER ---
         if action and action.lower().strip() == "undo":
-            data = load_json(file_target, lambda: {"servers": {}})
-            deleted_data = load_json(deleted_file, lambda: {"server": {}, "global": {}})
-
             if scope == "global":
                 if not is_op(ctx.author.id):
                     return await ctx.send("You do not have permission to use this command as globally")
                 
-                global_history = deleted_data.get("global", {})
+                history_doc = deleted_col.find_one({"_id": "global_history"}) or {}
+                global_history = history_doc.get("global", {})
                 
-                # If no specific tracking ID is passed, list every single global deletion record
                 if not undo_string:
                     if not global_history:
                         return await ctx.send("❌ No global reset history records found.")
@@ -470,11 +410,7 @@ class LeaderboardCog(commands.Cog):
                             ts = 0
                         description_lines.append(f"`{code}` — {info.get('date')} <t:{ts}:f> | {', '.join(info.get('server_names', ['Unknown']))}")
                     
-                    embed = discord.Embed(
-                        title="Global Reset History",
-                        description="\n".join(description_lines),
-                        color=0x2f3136
-                    )
+                    embed = discord.Embed(title="Global Reset History", description="\n".join(description_lines), color=0x2f3136)
                     pfp_url = ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url
                     embed.set_footer(text=f"Requested by {ctx.author.name}", icon_url=pfp_url)
 
@@ -484,44 +420,22 @@ class LeaderboardCog(commands.Cog):
                     async def delete_all_callback(interaction: discord.Interaction):
                         if interaction.user.id != ctx.author.id:
                             return await interaction.response.send_message("❌ This button is not for you.", ephemeral=True)
-                        deleted_data["global"] = {}
-                        save_json(deleted_file, deleted_data)
+                        deleted_col.delete_one({"_id": "global_history"})
                         await interaction.response.edit_message(content="🗑️ **All global reset records have been deleted.**", embed=None, view=None)
                     
                     delete_all_btn.callback = delete_all_callback
                     view.add_item(delete_all_btn)
-
                     return await ctx.send(embed=embed, view=view)
 
-                # Recover selected global backup item match
                 target_code = undo_string.lower().strip()
-                if target_code not in global_history:
-                    return await ctx.send(f"❌ Invalid code! No record found matching code `{target_code}`.")
-
-                selected_record = global_history.pop(target_code)
-                data["servers"] = selected_record["backup_data"]
-                
-                save_json(file_target, data)
-                save_json(deleted_file, deleted_data)
-
-                names_string = ", ".join(selected_record.get("server_names", []))
-                embed = discord.Embed(
-                    title="Global Restore",
-                    description=f"{names_string} | {selected_record.get('date')}\n\n🔄 Global leaderboards successfully restored using code `{target_code}`!",
-                    color=0x00ff00
-                )
-                pfp_url = ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url
-                embed.set_footer(text=f"Requested by {ctx.author.name}", icon_url=pfp_url)
-                return await ctx.send(embed=embed)
-
-            else:  # SERVER SCOPE UNDO
+                    else:
                 if not (is_admin(ctx.author.id, ctx.guild) or is_op(ctx.author.id)):
                     return await ctx.send("You do not have permission to use this command")
                 
                 gid_str = str(ctx.guild.id)
-                server_history = deleted_data.get("server", {}).get(gid_str, {})
+                history_doc = deleted_col.find_one({"_id": "server_history"}) or {}
+                server_history = history_doc.get("server", {}).get(gid_str, {})
 
-                # If no specific tracking ID is passed, list every server deletion record for current serverID
                 if not undo_string:
                     if not server_history:
                         return await ctx.send("❌ No local reset history records found for this server.")
@@ -531,27 +445,25 @@ class LeaderboardCog(commands.Cog):
                         ts = int(datetime.datetime.fromisoformat(info.get('date', '2026-01-01')).timestamp())
                         description_lines.append(f"`{code}` — {info.get('date')} <t:{ts}:f> | {info.get('server_name', 'Unknown')}")
                     
-                    embed = discord.Embed(
-                        title=f"{ctx.guild.name} Reset History",
-                        description="\n".join(description_lines),
-                        color=0x2f3136
-                    )
+                    embed = discord.Embed(title=f"{ctx.guild.name} Reset History", description="\n".join(description_lines), color=0x2f3136)
                     pfp_url = ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url
                     embed.set_footer(text=f"Requested by {ctx.author.name}", icon_url=pfp_url)
                     return await ctx.send(embed=embed)
 
-                # Recover selected local server backup item match
                 target_code = undo_string.lower().strip()
                 if target_code not in server_history:
                     return await ctx.send(f"❌ Invalid code! No record found matching code `{target_code}` for this server.")
 
                 selected_record = server_history.pop(target_code)
-                if "servers" not in data:
-                    data["servers"] = {}
-                data["servers"][gid_str] = selected_record["backup_data"]
+                
+                leaderboard_col.delete_many({"guild_id": gid_str})
+                backup_data = selected_record.get("backup_data", [])
+                if backup_data:
+                    for item in backup_data:
+                        item["_id"] = f"{item['guild_id']}_{item['user_id']}"
+                    leaderboard_col.insert_many(backup_data)
 
-                save_json(file_target, data)
-                save_json(deleted_file, deleted_data)
+                deleted_col.update_one({"_id": "server_history"}, {"$set": {f"server.{gid_str}": server_history}})
 
                 embed = discord.Embed(
                     title="Server Restore",
@@ -562,38 +474,41 @@ class LeaderboardCog(commands.Cog):
                 embed.set_footer(text=f"Requested by {ctx.author.name}", icon_url=pfp_url)
                 return await ctx.send(embed=embed)
 
-        # --- STANDARD RESET DIALOG ROUTER ---
         if scope == "global" and not is_op(ctx.author.id):
             return await ctx.send("You do not have permission to use this command as globally")
         if scope == "server" and not (is_admin(ctx.author.id, ctx.guild) or is_op(ctx.author.id)):
             return await ctx.send("You do not have permission to use this command")
 
         title = "⚠️☠️ Reset Global Leaderboards ☠️⚠️" if scope == "global" else "⚠️ Reset Current Server Leaderboards ⚠️"
-        embed = discord.Embed(
-            title=title,
-            description="Are you sure you want to do it?",
-            color=0xff0000 if scope == "global" else 0xfaa61a
-        )
+        embed = discord.Embed(title=title, description="Are you sure you want to do it?", color=0xff0000 if scope == "global" else 0xfaa61a)
         
         pfp_url = ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url
         embed.set_footer(text=f"Requested by {ctx.author.name}", icon_url=pfp_url)
 
         view = LeaderboardResetConfirmView(ctx, scope)
         await ctx.send(embed=embed, view=view)
-    @commands.command(name="secretcommand")
+        @commands.command(name="secretcommand")
     async def lb_best(self, ctx, user: discord.Member, num: int):
         if not is_admin(ctx.author.id):
             return await ctx.send("❌ You can't access this command. Please contact the bot owner to get access.")
 
-        srv = get_server_lb(ctx.guild.id)
-        uid = str(user.id)
-        if uid not in srv:
-            srv[uid] = {"username": user.name, "current_streak": 0, "best_streak": 0}
+        gid_str = str(ctx.guild.id)
+        uid_str = str(user.id)
+        doc_id = f"{gid_str}_{uid_str}"
 
-        old_best = srv[uid].get("best_streak", 0)
-        srv[uid]["best_streak"] = num
-        srv[uid]["username"] = user.name
-        save_json(LEADERBOARD_FILE, leaderboard)
+        old_doc = leaderboard_col.find_one({"_id": doc_id}) or {}
+        old_best = old_doc.get("best_streak", 0)
+
+        leaderboard_col.update_one(
+            {"_id": doc_id},
+            {"$set": {
+                "guild_id": gid_str,
+                "user_id": uid_str,
+                "username": user.name,
+                "best_streak": num
+            }},
+            upsert=True
+        )
         await ctx.send(f"✅ Updated **{user.name}** best streak: `{old_best}` → `{num}`")
 
     @commands.command(name="secretcommand1")
@@ -601,19 +516,28 @@ class LeaderboardCog(commands.Cog):
         if not is_admin(ctx.author.id):
             return await ctx.send("❌ You can't access this command. Please contact the bot owner to get access.")
 
-        srv = get_server_lb(ctx.guild.id)
-        uid = str(user.id)
-        if uid not in srv:
-            srv[uid] = {"username": user.name, "current_streak": 0, "best_streak": 0}
+        gid_str = str(ctx.guild.id)
+        uid_str = str(user.id)
+        doc_id = f"{gid_str}_{uid_str}"
 
-        old_current = srv[uid].get("current_streak", 0)
-        srv[uid]["current_streak"] = num
-        srv[uid]["username"] = user.name
+        old_doc = leaderboard_col.find_one({"_id": doc_id}) or {}
+        old_current = old_doc.get("current_streak", 0)
+        best_streak = old_doc.get("best_streak", 0)
 
-        if num > srv[uid].get("best_streak", 0):
-            srv[uid]["best_streak"] = num
+        if num > best_streak:
+            best_streak = num
 
-        save_json(LEADERBOARD_FILE, leaderboard)
+        leaderboard_col.update_one(
+            {"_id": doc_id},
+            {"$set": {
+                "guild_id": gid_str,
+                "user_id": uid_str,
+                "username": user.name,
+                "current_streak": num,
+                "best_streak": best_streak
+            }},
+            upsert=True
+        )
         await ctx.send(f"✅ Updated **{user.name}** current streak: `{old_current}` → `{num}`")
 
     @app_commands.command(name="leaderboard", description="Show the wordle leaderboard")
