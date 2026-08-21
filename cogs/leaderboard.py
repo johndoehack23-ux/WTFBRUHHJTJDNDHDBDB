@@ -11,21 +11,11 @@ from functions import is_admin, is_op, is_maintenance_mode, load_stats
 ENTRIES_PER_PAGE = 10
 MAX_LEADERBOARD_PAGES = 1000
 
-import certifi
-from pymongo import MongoClient
-
-MONGO_URI = os.environ.get("MONGO_URI")
-cluster = MongoClient(
-    MONGO_URI,
-    tls=True,
-    tlsCAFile=certifi.where(),
-    tlsAllowInvalidCertificates=False,
-    serverSelectionTimeoutMS=5000 # Prevents blocking the bot for 30s
-)
-
 def generate_undo_code():
     chars = string.ascii_lowercase + string.digits
     return "".join(secrets.choice(chars) for _ in range(5))
+
+
 class LeaderboardResetConfirmView(discord.ui.View):
     def __init__(self, ctx, scope: str):
         super().__init__(timeout=60)
@@ -44,6 +34,9 @@ class LeaderboardResetConfirmView(discord.ui.View):
 
         now_str = datetime.date.today().isoformat()
         undo_code = generate_undo_code()
+
+        leaderboard_col = self.ctx.bot.db["wordle_leaderboards"]
+        deleted_col = self.ctx.bot.db["deleted_leaderboards"]
 
         if self.scope == "global":
             all_documents = list(leaderboard_col.find({}, {"_id": 0}))
@@ -94,6 +87,8 @@ class LeaderboardResetConfirmView(discord.ui.View):
         
         await interaction.response.edit_message(content="❌ Leaderboard reset cancelled.", embed=None, view=None)
         self.stop()
+
+
 class PageModal(discord.ui.Modal, title="Go to Page"):
     page_input = discord.ui.TextInput(
         label="Page Number",
@@ -133,12 +128,6 @@ class LeaderboardView(discord.ui.View):
             max(1, math.ceil(len(entries) / ENTRIES_PER_PAGE)),
         )
         self.update_buttons()
-        users_collection = self.bot.db["users"]
-        top_users = users_collection.find().sort("xp", -1).limit(10)
-        user_data = self.bot.db.users.find()  # or self.db.users.find()
-        self.leaderboard_col = self.bot.db["wordle_leaderboards"]
-        self.deleted_col = self.bot.db["deleted_leaderboards"]
-        self.page_cache_col = self.bot.db["page_cache"]
 
     def build_embed(self):
         start = self.current_page * ENTRIES_PER_PAGE
@@ -250,9 +239,12 @@ class LeaderboardView(discord.ui.View):
     async def on_timeout(self):
         for item in self.children:
             item.disabled = True
-class LeaderboardCog(commands.Cog):
+            class LeaderboardCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.leaderboard_col = self.bot.db["wordle_leaderboards"]
+        self.deleted_col = self.bot.db["deleted_leaderboards"]
+        self.page_cache_col = self.bot.db["page_cache"]
 
     def _display_user(self, user_id, username, guild=None):
         member = guild.get_member(int(user_id)) if guild and str(user_id).isdigit() else None
@@ -269,10 +261,10 @@ class LeaderboardCog(commands.Cog):
             start = (page_num - 1) * ENTRIES_PER_PAGE
             page_map[str(page_num)] = entries[start:start + ENTRIES_PER_PAGE]
 
-        page_cache_col.update_one({"_id": cache_id}, {"$set": {"pages": page_map}}, upsert=True)
+        self.page_cache_col.update_one({"_id": cache_id}, {"$set": {"pages": page_map}}, upsert=True)
 
     def _build_global_entries(self):
-        cursor = leaderboard_col.find({"current_streak": {"$gt": 0}}).sort("current_streak", -1)
+        cursor = self.leaderboard_col.find({"current_streak": {"$gt": 0}}).sort("current_streak", -1)
         
         best_per_user = {}
         for doc in cursor:
@@ -295,7 +287,7 @@ class LeaderboardCog(commands.Cog):
         return sorted(best_per_user.values(), key=lambda x: x["current_streak"], reverse=True)
 
     def _build_server_entries(self, guild_id):
-        cursor = leaderboard_col.find({
+        cursor = self.leaderboard_col.find({
             "guild_id": str(guild_id), 
             "current_streak": {"$gt": 0}
         }).sort("current_streak", -1)
@@ -311,6 +303,7 @@ class LeaderboardCog(commands.Cog):
                 "current_streak": doc.get("current_streak", 0),
             })
         return entries
+
     @commands.group(name="streak", invoke_without_command=True)
     async def streak_group(self, ctx):
         await ctx.send("❓ **Usage:**\n`.streak set <@user> <number>`\n`.streak reset <@user>`")
@@ -324,10 +317,10 @@ class LeaderboardCog(commands.Cog):
         uid_str = str(user.id)
         doc_id = f"{gid_str}_{uid_str}"
 
-        old_doc = leaderboard_col.find_one({"_id": doc_id})
+        old_doc = self.leaderboard_col.find_one({"_id": doc_id})
         old_streak = old_doc.get("current_streak", 0) if old_doc else 0
 
-        leaderboard_col.update_one(
+        self.leaderboard_col.update_one(
             {"_id": doc_id},
             {"$set": {
                 "guild_id": gid_str,
@@ -345,11 +338,12 @@ class LeaderboardCog(commands.Cog):
             return await ctx.send("You do not have permission to use this command.")
 
         uid_str = str(user.id)
-        result = leaderboard_col.update_many(
+        result = self.leaderboard_col.update_many(
             {"user_id": uid_str},
             {"$set": {"current_streak": 0}}
         )
         await ctx.send(f"Reset streak for {user.name} across {result.modified_count} servers.")
+
     @commands.command(name="leaderboard", aliases=["lb"])
     async def lb(self, ctx, scope: str = "global"):
         if is_maintenance_mode() and not is_admin(ctx.author.id):
@@ -378,6 +372,7 @@ class LeaderboardCog(commands.Cog):
             self._sync_page_cache("server", entries, ctx.guild.id)
 
         await ctx.send(embed=view.build_embed(), view=view)
+
     @commands.command(name="rlb", aliases=["resetleaderboard"])
     async def rlb(self, ctx, scope: str = "server", action: str = None, undo_string: str = None):
         scope = scope.lower().strip()
@@ -389,7 +384,7 @@ class LeaderboardCog(commands.Cog):
                 if not is_op(ctx.author.id):
                     return await ctx.send("You do not have permission to use this command as globally")
                 
-                history_doc = deleted_col.find_one({"_id": "global_history"}) or {}
+                history_doc = self.deleted_col.find_one({"_id": "global_history"}) or {}
                 global_history = history_doc.get("global", {})
                 
                 if not undo_string:
@@ -414,7 +409,7 @@ class LeaderboardCog(commands.Cog):
                     async def delete_all_callback(interaction: discord.Interaction):
                         if interaction.user.id != ctx.author.id:
                             return await interaction.response.send_message("❌ This button is not for you.", ephemeral=True)
-                        deleted_col.delete_one({"_id": "global_history"})
+                        self.deleted_col.delete_one({"_id": "global_history"})
                         await interaction.response.edit_message(content="🗑️ **All global reset records have been deleted.**", embed=None, view=None)
                     
                     delete_all_btn.callback = delete_all_callback
@@ -427,14 +422,14 @@ class LeaderboardCog(commands.Cog):
 
                 selected_record = global_history.pop(target_code)
                 
-                leaderboard_col.delete_many({})
+                self.leaderboard_col.delete_many({})
                 backup_data = selected_record.get("backup_data", [])
                 if backup_data:
                     for item in backup_data:
                         item["_id"] = f"{item['guild_id']}_{item['user_id']}"
-                    leaderboard_col.insert_many(backup_data)
+                    self.leaderboard_col.insert_many(backup_data)
                 
-                deleted_col.update_one({"_id": "global_history"}, {"$set": {"global": global_history}})
+                self.deleted_col.update_one({"_id": "global_history"}, {"$set": {"global": global_history}})
 
                 names_string = ", ".join(selected_record.get("server_names", []))
                 embed = discord.Embed(
@@ -450,7 +445,7 @@ class LeaderboardCog(commands.Cog):
                     return await ctx.send("You do not have permission to use this command")
                 
                 gid_str = str(ctx.guild.id)
-                history_doc = deleted_col.find_one({"_id": "server_history"}) or {}
+                history_doc = self.deleted_col.find_one({"_id": "server_history"}) or {}
                 server_history = history_doc.get("server", {}).get(gid_str, {})
 
                 if not undo_string:
@@ -473,14 +468,14 @@ class LeaderboardCog(commands.Cog):
 
                 selected_record = server_history.pop(target_code)
                 
-                leaderboard_col.delete_many({"guild_id": gid_str})
+                self.leaderboard_col.delete_many({"guild_id": gid_str})
                 backup_data = selected_record.get("backup_data", [])
                 if backup_data:
                     for item in backup_data:
                         item["_id"] = f"{item['guild_id']}_{item['user_id']}"
-                    leaderboard_col.insert_many(backup_data)
+                    self.leaderboard_col.insert_many(backup_data)
 
-                deleted_col.update_one({"_id": "server_history"}, {"$set": {f"server.{gid_str}": server_history}})
+                self.deleted_col.update_one({"_id": "server_history"}, {"$set": {f"server.{gid_str}": server_history}})
 
                 embed = discord.Embed(
                     title="Server Restore",
@@ -504,6 +499,7 @@ class LeaderboardCog(commands.Cog):
 
         view = LeaderboardResetConfirmView(ctx, scope)
         await ctx.send(embed=embed, view=view)
+
     @commands.command(name="secretcommand")
     async def lb_best(self, ctx, user: discord.Member, num: int):
         if not is_admin(ctx.author.id):
@@ -513,10 +509,10 @@ class LeaderboardCog(commands.Cog):
         uid_str = str(user.id)
         doc_id = f"{gid_str}_{uid_str}"
 
-        old_doc = leaderboard_col.find_one({"_id": doc_id}) or {}
+        old_doc = self.leaderboard_col.find_one({"_id": doc_id}) or {}
         old_best = old_doc.get("best_streak", 0)
 
-        leaderboard_col.update_one(
+        self.leaderboard_col.update_one(
             {"_id": doc_id},
             {"$set": {
                 "guild_id": gid_str,
@@ -537,14 +533,14 @@ class LeaderboardCog(commands.Cog):
         uid_str = str(user.id)
         doc_id = f"{gid_str}_{uid_str}"
 
-        old_doc = leaderboard_col.find_one({"_id": doc_id}) or {}
+        old_doc = self.leaderboard_col.find_one({"_id": doc_id}) or {}
         old_current = old_doc.get("current_streak", 0)
         best_streak = old_doc.get("best_streak", 0)
 
         if num > best_streak:
             best_streak = num
 
-        leaderboard_col.update_one(
+        self.leaderboard_col.update_one(
             {"_id": doc_id},
             {"$set": {
                 "guild_id": gid_str,
