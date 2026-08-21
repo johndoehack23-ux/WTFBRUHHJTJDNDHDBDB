@@ -99,7 +99,7 @@ class LeaderboardResetConfirmView(discord.ui.View):
         
         await interaction.response.edit_message(content="❌ Leaderboard reset cancelled.", embed=None, view=None)
         self.stop()
-                          class PageModal(discord.ui.Modal, title="Go to Page"):
+class PageModal(discord.ui.Modal, title="Go to Page"):
     page_input = discord.ui.TextInput(
         label="Page Number",
         placeholder="Select a page (1-1000)",
@@ -216,7 +216,7 @@ class LeaderboardView(discord.ui.View):
             await interaction.response.edit_message(embed=v.build_embed(), view=v)
         jump_back.callback = jump_back_cb
         self.add_item(jump_back)
-                    prev = discord.ui.Button(label="<", style=discord.ButtonStyle.secondary, disabled=(self.current_page == 0), row=2)
+                prev = discord.ui.Button(label="<", style=discord.ButtonStyle.secondary, disabled=(self.current_page == 0), row=2)
         async def prev_cb(interaction: discord.Interaction, v=self):
             v.current_page = max(0, v.current_page - 1)
             v.update_buttons()
@@ -312,7 +312,7 @@ class LeaderboardCog(commands.Cog):
                 "current_streak": doc.get("current_streak", 0),
             })
         return entries
-            @commands.group(name="streak", invoke_without_command=True)
+    @commands.group(name="streak", invoke_without_command=True)
     async def streak_group(self, ctx):
         await ctx.send("❓ **Usage:**\n`.streak set <@user> <number>`\n`.streak reset <@user>`")
 
@@ -380,7 +380,7 @@ class LeaderboardCog(commands.Cog):
             self._sync_page_cache("server", entries, ctx.guild.id)
 
         await ctx.send(embed=view.build_embed(), view=view)
-                                  @commands.command(name="rlb", aliases=["resetleaderboard"])
+    @commands.command(name="rlb", aliases=["resetleaderboard"])
     async def rlb(self, ctx, scope: str = "server", action: str = None, undo_string: str = None):
         scope = scope.lower().strip()
         if scope not in ("server", "global"):
@@ -498,7 +498,125 @@ class LeaderboardCog(commands.Cog):
             return await ctx.send("You do not have permission to use this command as globally")
         if scope == "server" and not (is_admin(ctx.author.id, ctx.guild) or is_op(ctx.author.id)):
             return await ctx.send("You do not have permission to use this command")
-                          title = "⚠️☠️ Reset Global Leaderboards ☠️⚠️" if scope == "global" else "⚠️ Reset Current Server Leaderboards ⚠️"
+    @commands.command(name="rlb", aliases=["resetleaderboard"])
+    async def rlb(self, ctx, scope: str = "server", action: str = None, undo_string: str = None):
+        scope = scope.lower().strip()
+        if scope not in ("server", "global"):
+            return await ctx.send("❌ Usage: `.rlb server [undo] [code]` or `.rlb global [undo] [code]` (default: server)")
+
+        if action and action.lower().strip() == "undo":
+            if scope == "global":
+                if not is_op(ctx.author.id):
+                    return await ctx.send("You do not have permission to use this command as globally")
+                
+                history_doc = deleted_col.find_one({"_id": "global_history"}) or {}
+                global_history = history_doc.get("global", {})
+                
+                if not undo_string:
+                    if not global_history:
+                        return await ctx.send("❌ No global reset history records found.")
+                    
+                    description_lines = []
+                    for code, info in global_history.items():
+                        try:
+                            ts = int(datetime.datetime.fromisoformat(info.get("date", "2026-01-01")).timestamp())
+                        except Exception:
+                            ts = 0
+                        description_lines.append(f"`{code}` — {info.get('date')} <t:{ts}:f> | {', '.join(info.get('server_names', ['Unknown']))}")
+                    
+                    embed = discord.Embed(title="Global Reset History", description="\n".join(description_lines), color=0x2f3136)
+                    pfp_url = ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url
+                    embed.set_footer(text=f"Requested by {ctx.author.name}", icon_url=pfp_url)
+
+                    view = discord.ui.View(timeout=120)
+                    delete_all_btn = discord.ui.Button(label="Delete all global", style=discord.ButtonStyle.red)
+                    
+                    async def delete_all_callback(interaction: discord.Interaction):
+                        if interaction.user.id != ctx.author.id:
+                            return await interaction.response.send_message("❌ This button is not for you.", ephemeral=True)
+                        deleted_col.delete_one({"_id": "global_history"})
+                        await interaction.response.edit_message(content="🗑️ **All global reset records have been deleted.**", embed=None, view=None)
+                    
+                    delete_all_btn.callback = delete_all_callback
+                    view.add_item(delete_all_btn)
+                    return await ctx.send(embed=embed, view=view)
+
+                target_code = undo_string.lower().strip()
+                if target_code not in global_history:
+                    return await ctx.send(f"❌ Invalid code! No record found matching code `{target_code}`.")
+
+                selected_record = global_history.pop(target_code)
+                
+                leaderboard_col.delete_many({})
+                backup_data = selected_record.get("backup_data", [])
+                if backup_data:
+                    for item in backup_data:
+                        item["_id"] = f"{item['guild_id']}_{item['user_id']}"
+                    leaderboard_col.insert_many(backup_data)
+                
+                deleted_col.update_one({"_id": "global_history"}, {"$set": {"global": global_history}})
+
+                names_string = ", ".join(selected_record.get("server_names", []))
+                embed = discord.Embed(
+                    title="Global Restore",
+                    description=f"{names_string} | {selected_record.get('date')}\n\n🔄 Global leaderboards successfully restored!",
+                    color=0x00ff00
+                )
+                pfp_url = ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url
+                embed.set_footer(text=f"Requested by {ctx.author.name}", icon_url=pfp_url)
+                return await ctx.send(embed=embed)
+
+            else:
+                if not (is_admin(ctx.author.id, ctx.guild) or is_op(ctx.author.id)):
+                    return await ctx.send("You do not have permission to use this command")
+                
+                gid_str = str(ctx.guild.id)
+                history_doc = deleted_col.find_one({"_id": "server_history"}) or {}
+                server_history = history_doc.get("server", {}).get(gid_str, {})
+
+                if not undo_string:
+                    if not server_history:
+                        return await ctx.send("❌ No local reset history records found for this server.")
+                    
+                    description_lines = []
+                    for code, info in server_history.items():
+                        ts = int(datetime.datetime.fromisoformat(info.get('date', '2026-01-01')).timestamp())
+                        description_lines.append(f"`{code}` — {info.get('date')} <t:{ts}:f> | {info.get('server_name', 'Unknown')}")
+                    
+                    embed = discord.Embed(title=f"{ctx.guild.name} Reset History", description="\n".join(description_lines), color=0x2f3136)
+                    pfp_url = ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url
+                    embed.set_footer(text=f"Requested by {ctx.author.name}", icon_url=pfp_url)
+                    return await ctx.send(embed=embed)
+
+                target_code = undo_string.lower().strip()
+                if target_code not in server_history:
+                    return await ctx.send(f"❌ Invalid code! No record found matching code `{target_code}` for this server.")
+
+                selected_record = server_history.pop(target_code)
+                
+                leaderboard_col.delete_many({"guild_id": gid_str})
+                backup_data = selected_record.get("backup_data", [])
+                if backup_data:
+                    for item in backup_data:
+                        item["_id"] = f"{item['guild_id']}_{item['user_id']}"
+                    leaderboard_col.insert_many(backup_data)
+
+                deleted_col.update_one({"_id": "server_history"}, {"$set": {f"server.{gid_str}": server_history}})
+
+                embed = discord.Embed(
+                    title="Server Restore",
+                    description=f"{selected_record.get('server_name')} | {selected_record.get('date')}\n\n🔄 Current server streaks successfully restored using code `{target_code}`!",
+                    color=0x00ff00
+                )
+                pfp_url = ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url
+                embed.set_footer(text=f"Requested by {ctx.author.name}", icon_url=pfp_url)
+                return await ctx.send(embed=embed)
+
+        if scope == "global" and not is_op(ctx.author.id):
+            return await ctx.send("You do not have permission to use this command as globally")
+        if scope == "server" and not (is_admin(ctx.author.id, ctx.guild) or is_op(ctx.author.id)):
+            return await ctx.send("You do not have permission to use this command")
+                    title = "⚠️☠️ Reset Global Leaderboards ☠️⚠️" if scope == "global" else "⚠️ Reset Current Server Leaderboards ⚠️"
         embed = discord.Embed(title=title, description="Are you sure you want to do it?", color=0xff0000 if scope == "global" else 0xfaa61a)
         
         pfp_url = ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url
@@ -588,3 +706,4 @@ class LeaderboardCog(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(LeaderboardCog(bot))
+        
