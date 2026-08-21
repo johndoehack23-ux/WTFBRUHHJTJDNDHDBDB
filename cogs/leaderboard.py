@@ -114,8 +114,6 @@ class PageModal(discord.ui.Modal, title="Go to Page"):
         self.lb_view.current_page = page
         self.lb_view.update_buttons()
         await interaction.response.edit_message(embed=self.lb_view.build_embed(), view=self.lb_view)
-
-
 class LeaderboardView(discord.ui.View):
     def __init__(self, entries, mode, guild_name=""):
         super().__init__(timeout=120)
