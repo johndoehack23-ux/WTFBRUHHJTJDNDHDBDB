@@ -13,10 +13,6 @@ import logging
 import json
 import pytz
 from datetime import datetime as dt_class # Alias it here
-from main import db
-
-client = MongoClient(os.environ.get("MONGO_URI"), tls=True, tlsCAFile=certifi.where())
-bot.db = client["WordleBotDB"]
 
 def get_bot_time():
     """Gets the current datetime adjusted to the user's stats.json timezone."""
