@@ -6,11 +6,13 @@ import datetime
 import discord
 from discord.ext import commands
 from discord import app_commands
-from pymongo import MongoClient
 from functions import is_admin, is_op, is_maintenance_mode, load_stats
 
 ENTRIES_PER_PAGE = 10
 MAX_LEADERBOARD_PAGES = 1000
+
+import certifi
+from pymongo import MongoClient
 
 MONGO_URI = os.environ.get("MONGO_URI")
 cluster = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
