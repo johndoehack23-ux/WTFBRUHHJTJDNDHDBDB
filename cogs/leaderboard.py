@@ -99,9 +99,7 @@ class LeaderboardResetConfirmView(discord.ui.View):
         
         await interaction.response.edit_message(content="❌ Leaderboard reset cancelled.", embed=None, view=None)
         self.stop()
-
-
-class PageModal(discord.ui.Modal, title="Go to Page"):
+                          class PageModal(discord.ui.Modal, title="Go to Page"):
     page_input = discord.ui.TextInput(
         label="Page Number",
         placeholder="Select a page (1-1000)",
@@ -218,7 +216,7 @@ class LeaderboardView(discord.ui.View):
             await interaction.response.edit_message(embed=v.build_embed(), view=v)
         jump_back.callback = jump_back_cb
         self.add_item(jump_back)
-        prev = discord.ui.Button(label="<", style=discord.ButtonStyle.secondary, disabled=(self.current_page == 0), row=2)
+                    prev = discord.ui.Button(label="<", style=discord.ButtonStyle.secondary, disabled=(self.current_page == 0), row=2)
         async def prev_cb(interaction: discord.Interaction, v=self):
             v.current_page = max(0, v.current_page - 1)
             v.update_buttons()
@@ -314,8 +312,7 @@ class LeaderboardCog(commands.Cog):
                 "current_streak": doc.get("current_streak", 0),
             })
         return entries
-
-    @commands.group(name="streak", invoke_without_command=True)
+            @commands.group(name="streak", invoke_without_command=True)
     async def streak_group(self, ctx):
         await ctx.send("❓ **Usage:**\n`.streak set <@user> <number>`\n`.streak reset <@user>`")
 
@@ -383,8 +380,7 @@ class LeaderboardCog(commands.Cog):
             self._sync_page_cache("server", entries, ctx.guild.id)
 
         await ctx.send(embed=view.build_embed(), view=view)
-
-    @commands.command(name="rlb", aliases=["resetleaderboard"])
+                                  @commands.command(name="rlb", aliases=["resetleaderboard"])
     async def rlb(self, ctx, scope: str = "server", action: str = None, undo_string: str = None):
         scope = scope.lower().strip()
         if scope not in ("server", "global"):
@@ -428,7 +424,31 @@ class LeaderboardCog(commands.Cog):
                     return await ctx.send(embed=embed, view=view)
 
                 target_code = undo_string.lower().strip()
-                    else:
+                if target_code not in global_history:
+                    return await ctx.send(f"❌ Invalid code! No record found matching code `{target_code}`.")
+
+                selected_record = global_history.pop(target_code)
+                
+                leaderboard_col.delete_many({})
+                backup_data = selected_record.get("backup_data", [])
+                if backup_data:
+                    for item in backup_data:
+                        item["_id"] = f"{item['guild_id']}_{item['user_id']}"
+                    leaderboard_col.insert_many(backup_data)
+                
+                deleted_col.update_one({"_id": "global_history"}, {"$set": {"global": global_history}})
+
+                names_string = ", ".join(selected_record.get("server_names", []))
+                embed = discord.Embed(
+                    title="Global Restore",
+                    description=f"{names_string} | {selected_record.get('date')}\n\n🔄 Global leaderboards successfully restored!",
+                    color=0x00ff00
+                )
+                pfp_url = ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url
+                embed.set_footer(text=f"Requested by {ctx.author.name}", icon_url=pfp_url)
+                return await ctx.send(embed=embed)
+
+            else:
                 if not (is_admin(ctx.author.id, ctx.guild) or is_op(ctx.author.id)):
                     return await ctx.send("You do not have permission to use this command")
                 
@@ -478,8 +498,7 @@ class LeaderboardCog(commands.Cog):
             return await ctx.send("You do not have permission to use this command as globally")
         if scope == "server" and not (is_admin(ctx.author.id, ctx.guild) or is_op(ctx.author.id)):
             return await ctx.send("You do not have permission to use this command")
-
-        title = "⚠️☠️ Reset Global Leaderboards ☠️⚠️" if scope == "global" else "⚠️ Reset Current Server Leaderboards ⚠️"
+                          title = "⚠️☠️ Reset Global Leaderboards ☠️⚠️" if scope == "global" else "⚠️ Reset Current Server Leaderboards ⚠️"
         embed = discord.Embed(title=title, description="Are you sure you want to do it?", color=0xff0000 if scope == "global" else 0xfaa61a)
         
         pfp_url = ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url
@@ -487,7 +506,8 @@ class LeaderboardCog(commands.Cog):
 
         view = LeaderboardResetConfirmView(ctx, scope)
         await ctx.send(embed=embed, view=view)
-        @commands.command(name="secretcommand")
+
+    @commands.command(name="secretcommand")
     async def lb_best(self, ctx, user: discord.Member, num: int):
         if not is_admin(ctx.author.id):
             return await ctx.send("❌ You can't access this command. Please contact the bot owner to get access.")
