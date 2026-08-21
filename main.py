@@ -1,4 +1,5 @@
 import os
+from main import db   # Use this if 'db' is defined in main.py
 import discord
 import asyncio
 from discord.ext import commands
