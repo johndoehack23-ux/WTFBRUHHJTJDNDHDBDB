@@ -14,7 +14,7 @@ MAX_LEADERBOARD_PAGES = 1000
 
 MONGO_URI = os.environ.get("MONGO_URI")
 cluster = MongoClient(MONGO_URI)
-db = cluster["WordleBotDB"]
+db = cluster["Cluster0"]
 
 leaderboard_col = db["wordle_leaderboards"]
 deleted_col = db["deleted_leaderboards"]
