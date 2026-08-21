@@ -24,14 +24,6 @@ cluster = MongoClient(
     serverSelectionTimeoutMS=5000 # Prevents blocking the bot for 30s
 )
 
-leaderboard_col = db["wordle_leaderboards"]
-deleted_col = db["deleted_leaderboards"]
-page_cache_col = db["page_cache"]
-
-users_collection = self.bot.db["users"]
-top_users = users_collection.find().sort("xp", -1).limit(10)
-user_data = self.bot.db.users.find()  # or self.db.users.find()
-
 def generate_undo_code():
     chars = string.ascii_lowercase + string.digits
     return "".join(secrets.choice(chars) for _ in range(5))
@@ -142,6 +134,12 @@ class LeaderboardView(discord.ui.View):
             max(1, math.ceil(len(entries) / ENTRIES_PER_PAGE)),
         )
         self.update_buttons()
+        users_collection = self.bot.db["users"]
+        top_users = users_collection.find().sort("xp", -1).limit(10)
+        user_data = self.bot.db.users.find()  # or self.db.users.find()
+        self.leaderboard_col = self.bot.db["wordle_leaderboards"]
+        self.deleted_col = self.bot.db["deleted_leaderboards"]
+        self.page_cache_col = self.bot.db["page_cache"]
 
     def build_embed(self):
         start = self.current_page * ENTRIES_PER_PAGE
