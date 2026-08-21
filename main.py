@@ -1,5 +1,4 @@
 import os
-from main import db   # Use this if 'db' is defined in main.py
 import discord
 import asyncio
 from discord.ext import commands
@@ -14,6 +13,7 @@ import logging
 import json
 import pytz
 from datetime import datetime as dt_class # Alias it here
+from main import db
 
 def get_bot_time():
     """Gets the current datetime adjusted to the user's stats.json timezone."""
