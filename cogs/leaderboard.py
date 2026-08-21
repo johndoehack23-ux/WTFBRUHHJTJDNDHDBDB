@@ -13,7 +13,7 @@ ENTRIES_PER_PAGE = 10
 MAX_LEADERBOARD_PAGES = 1000
 
 MONGO_URI = os.environ.get("MONGO_URI")
-cluster = MongoClient(MONGO_URI)
+cluster = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
 db = cluster["WordleBotDB"]
 
 leaderboard_col = db["wordle_leaderboards"]
