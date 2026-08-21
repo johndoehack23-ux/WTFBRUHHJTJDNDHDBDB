@@ -2,4 +2,4 @@ discord.py
 flask
 requests
 pytz
-pymongo
+pymongo>=4.8
