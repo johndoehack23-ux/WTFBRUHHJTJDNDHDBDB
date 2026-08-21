@@ -137,12 +137,26 @@ def get_prefix(bot, message):
         return data.get("prefix", ".")
     except Exception:
         return "."
+        
+import certifi
+from pymongo import MongoClient
 
+# Initialize Discord Bot instance
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 
 bot = commands.Bot(command_prefix=get_prefix, intents=intents, help_command=None)
+
+# Initialize MongoDB Connection
+MONGO_URI = os.environ.get("MONGO_URI")
+client = MongoClient(
+    MONGO_URI,
+    tls=True,
+    tlsCAFile=certifi.where(),
+    serverSelectionTimeoutMS=5000
+)
+bot.db = client["WordleBotDB"]  # Attached to Discord bot instance
 
 server_config = load_json(CONFIG_FILE, dict)
 if "invited_users" not in server_config:
