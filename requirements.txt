@@ -1,5 +1,0 @@
-discord.py
-flask
-requests
-pytz
-pymongo>=4.8
