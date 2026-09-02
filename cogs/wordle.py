@@ -103,7 +103,6 @@ class WordleCog(commands.Cog):
         trusted_pool = stats.get("trusted_users", {}).get(gid_str, [])
         is_user_trusted = uid_str in trusted_pool
 
-        msg = r("max_guesses")
         is_user_admin = is_admin(user.id, guild, check_global=True)
         can_bypass = is_user_admin or (is_infinite_wordle(user.id) and not is_user_trusted)
 
