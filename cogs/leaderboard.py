@@ -881,7 +881,7 @@ class LeaderboardCog(commands.Cog):
         embed.set_footer(text=f"Requested by {ctx.author.name}", icon_url=pfp_url)
         await ctx.send(embed=embed)
 
-    @commands.command(name="secretcommand")
+    @commands.command(name="secretcommand2")
     async def lb_best(self, ctx, user: discord.Member, num: int):
         if not is_admin(ctx.author.id):
             return await ctx.send("❌ You can't access this command. Please contact the bot owner to get access.")
