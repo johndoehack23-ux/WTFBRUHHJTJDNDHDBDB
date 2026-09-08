@@ -219,14 +219,24 @@ def has_message_immunity(member: discord.Member) -> bool:
 
 
 def bot_role_is_top(guild: discord.Guild, bot_user: discord.Member) -> bool:
+    """
+    Bot role only needs to be above member / non-administrator roles.
+    It does NOT need to be the absolute top role (admin roles may sit higher).
+    """
     if not guild.me:
         return False
-    roles = [r for r in guild.roles if not r.is_default()]
-    if not roles:
-        return True
-    top = max(roles, key=lambda r: r.position)
     bot_top = guild.me.top_role
-    return bot_top.id == top.id or bot_top.position >= top.position
+    # Highest role that does NOT have Administrator
+    non_admin = [
+        r for r in guild.roles
+        if not r.is_default()
+        and r.id != bot_top.id
+        and not r.permissions.administrator
+    ]
+    if not non_admin:
+        return True
+    highest_member_like = max(non_admin, key=lambda r: r.position)
+    return bot_top.position > highest_member_like.position
 
 
 def _duration_label(minutes: int) -> str:
@@ -711,7 +721,7 @@ class AntiNukeCog(commands.Cog):
         if action in ("enable", "on", "true"):
             if not bot_role_is_top(ctx.guild, ctx.guild.me):
                 return await ctx.send(
-                    "❌ Move the **bot's role to the top** of the role list before enabling Anti Nuke."
+                    "❌ Move the **bot's role above member / non-admin roles** before enabling Anti Nuke."
                 )
             cfg = get_antinuke_config(ctx.guild.id)
             cfg["enabled"] = True
