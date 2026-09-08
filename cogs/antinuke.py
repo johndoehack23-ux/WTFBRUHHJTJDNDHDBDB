@@ -719,16 +719,16 @@ class AntiNukeCog(commands.Cog):
         action = action.lower().strip()
 
         if action in ("enable", "on", "true"):
-            if not bot_role_is_top(ctx.guild, ctx.guild.me):
-                return await ctx.send(
-                    "❌ Move the **bot's role above member / non-admin roles** before enabling Anti Nuke."
-                )
             cfg = get_antinuke_config(ctx.guild.id)
             cfg["enabled"] = True
             save_antinuke_config(ctx.guild.id, cfg)
             await ctx.send(
-                "✅ **Anti Nuke ENABLED**\n"
-                "Defaults: **Roles → Kick** · **Channels → Ban** · **Messages → Mute 5m** (tokens/NSFW/invites)\nSpam is handled by `.automod`"
+                "\n".join([
+                    "✅ **Anti Nuke ENABLED**",
+                    "Defaults: **Roles → Kick** · **Channels → Ban** · **Messages → Mute 5m** (tokens/NSFW/invites)",
+                    "Spam is handled by `.automod`",
+                    "❗WIP",
+                ])
             )
             await antinuke_log(self.bot, ctx.guild, f"✅ Anti Nuke enabled by {ctx.author} (`{ctx.author.id}`)")
             return
