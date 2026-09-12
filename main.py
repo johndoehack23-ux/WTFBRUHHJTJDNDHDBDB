@@ -321,16 +321,22 @@ async def on_ready():
 async def setup_hook():
     target_folder = "cogs" if os.path.exists("cogs") else "Cog"
 
-    # Auto-discover all .py files in the cogs folder (no hardcoded list needed)
-    cog_files = sorted(
-        f for f in os.listdir(target_folder)
-        if f.endswith(".py") and not f.startswith("_")
-    )
-    cogs = [f"{target_folder}.{f[:-3]}" for f in cog_files]
+    # Auto-discover .py cogs in cogs/ and subpackages (server_protection, economy, ...)
+    cogs = []
+    for dirpath, dirnames, filenames in os.walk(target_folder):
+        dirnames[:] = [d for d in dirnames if not d.startswith("_") and d != "__pycache__"]
+        for f in sorted(filenames):
+            if not f.endswith(".py") or f.startswith("_"):
+                continue
+            rel = os.path.relpath(os.path.join(dirpath, f), ".")
+            mod = rel[:-3].replace(os.sep, ".")
+            cogs.append(mod)
+    cogs = sorted(set(cogs))
 
     for cog in cogs:
         try:
             await bot.load_extension(cog)
+            print(f"✅ loaded {cog}")
         except Exception as e:
             print(f"❌ Failed to load extension {cog}: {e}")
 
